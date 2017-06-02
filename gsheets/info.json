@@ -1,0 +1,9 @@
+{
+  "NAME" : "GSheets",
+  "AUTHOR" : "Tobotimus",
+  "SHORT" : "Display data from Google Sheets in discord!",
+  "DISABLED" : false,
+  "TAGS" : ["spreadsheets", "google", "tables", "tabulate"],
+  "DESCRIPTION" : "Get ranges from any Google Sheet (which is shared with the bot), and display it as a table in discord.",
+  "INSTALL_MSG" : "Needs to be set up with a client secret file first. See `[p]sheets secret` in PM.\nYou can add sheets with `[p]addsheet`.\nGet ranges from that sheet with `[p]gettable`"
+}

@@ -1,0 +1,9 @@
+{
+  "NAME": "Register",
+  "AUTHOR": "Tobotimus",
+  "SHORT": "Role management for your server.",
+  "DISABLED": false,
+  "TAGS": [ "register", "roles", "management", "admin", "subscribing" ],
+  "DESCRIPTION": "Allows users to get/remove their own roles with commands, instead of bugging mods to do it for them.\nAlso includes commands for mods to give/take roles from any user.",
+  "INSTALL_MSG": "Use `[p]regedit` to set roles which users can register for."
+}

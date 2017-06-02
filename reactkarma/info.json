@@ -1,0 +1,9 @@
+{
+  "NAME" : "ReactKarma",
+  "AUTHOR" : "Tobotimus",
+  "SHORT": "A reddit-like karma system from reactions!",
+  "DISABLED":  false,
+  "TAGS" : ["reddit", "karma",  "upvote", "downvote", "reactions", "leaderboard", "ranking"],
+  "DESCRIPTION" : "A karma system with discord reactions.\nSet the upvote and downvote emojis in each server, reacting with those emojis gives/takes karma!",
+  "INSTALL_MSG" : "Set the upvote and downvote emojis in each server with `[p]setupvote` and `[p]setdownvote`.\nCheck karma with `[p]karma` or `[p]karmaboard`."
+}
