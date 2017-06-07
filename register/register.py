@@ -1,205 +1,157 @@
-import os
-import copy
-import asyncio
-import logging
 import discord
 from discord.ext import commands
+import asyncio
+import logging
 from cogs.utils import checks
 from cogs.utils.dataIO import dataIO
 from cogs.utils.chat_formatting import box
+import os
+import copy
 
 log = logging.getLogger('red.register')
 default_settings = {
-    "roles"     : {},
-    "whisper"   : False,
-    "delcmds"   : False
+    "roles": [],
+    "delete_after": None
 }
+REMOVE = "removed from"
+ADD = "assigned to"
+
 
 class Register:
     """Allows users to register for certain roles."""
     
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.location = 'data/register/settings.json'
-        self.json = dataIO.load_json(self.location)
+        self.settings = dataIO.load_json(self.location)
 
     @commands.command(pass_context=True, no_pm=True)
-    async def register(self, ctx, role_name: str=''):
+    async def register(self, ctx: commands.Context, *, role_name: str=''):
         """Gives the user a role
 
         Valid roles can be added using !regedit
         Example usage: !register PC"""
         server = ctx.message.server
         user = ctx.message.author
-        channel = ctx.message.channel
-        if self.json[server.id]["whisper"]:
-            channel = user
+        task = None # Whether we are removing or adding a role, or doing nothing
+        delete_after = None # set if the 'quiet' option is on
+        msg = ''
+        if server.id not in self.settings:
+            return
         if role_name:
-            # --- CHECK VALID ROLE ---
-            try:
-                role = discord.utils.get(server.roles, name=role_name)
-                if role.id in self.json[server.id]["roles"]:
-                    # VALID ROLE!
+            role = next((r for r in server.roles if r.name == role_name and 
+                         r.id in self.settings[server.id]["roles"]), None)
+            if role is None:
+                msg = "You can't register for that role.".format(role_name)
+            else:
+                try:
                     if role not in user.roles:
-                        # --- ADD TO USER ---
+                        task = ADD
                         await self.bot.add_roles(user, role)
-                        await self.bot.send_message(channel, '`{}` role has been assigned to you in {}!'.format(role.name, server.name))
                     else:
-                        # --- REMOVE FROM USER ---
+                        task = REMOVE
                         await self.bot.remove_roles(user, role)
-                        await self.bot.send_message(channel, '`{}` role has been removed from you in {}!'.format(role.name, server.name))
-                else:
-                    # ROLE NOT IN REGISTER
-                    await self.bot.send_message(channel, 'You can\'t register for `{}` in {}.'.format(role.name, server.name))
-            except:
-                # ROLE NOT IN SERVER
-                await self.bot.send_message(channel, '`{}` isn\'t a role in {}.'.format(role_name, server.name))
-        else:
-            # NO ROLE GIVEN
-            # --- SEND HELP MESSAGE ---
-            pages = self.bot.formatter.format_help_for(ctx, ctx.command)
-            for page in pages:
-                await self.bot.send_message(channel, page)
-            # --- SEND VALID ROLES ---
-            if server.id in self.json and self.json[server.id]["roles"]:
-                valid_roles = []
-                for r in self.json[server.id]["roles"]:
-                    role = discord.utils.get(server.roles, id=r)
-                    if role is None:
-                        log.debug("Invalid role ID: {}".format(r))
-                        continue
+                    msg = "The {} role has been {} {}.".format(role_name, task, user.display_name)
+                except discord.errors.Forbidden:
+                    if not server.me.manage_roles:
+                        msg = "I don't have the `Manage Roles` permission."
+                    elif role > server.me.top_role:
+                        msg = "I cannot manage roles higher than my top role's position."
                     else:
-                        log.debug(role.id)
-                        valid_roles.append(role.name)
-                msg = ("Valid register roles in {}:\n"
+                        msg = "I don't have permission to do that."
+        else:
+            # --- SEND VALID ROLES ---
+            if server.id in self.settings and self.settings[server.id]["roles"]:
+                valid_roles = [r.name for r in server.roles if r.id in self.settings[server.id]["roles"]]
+                msg = box("Valid register roles in {}:\n"
                         "{}"
                         "".format(server.name, ", ".join(sorted(valid_roles)))
                         )
-                await self.bot.send_message(channel, box(msg))
             else:
-                msg = "There aren't any roles you can register for in {}".format(server.name)
-                await self.bot.send_message(channel, box(msg))
-        if self.json[server.id]["delcmds"]:
+                msg = "Register isn't enabled in this server."
+        delete_after = self.settings[server.id]["delete_after"]
+        await self.bot.say(msg, delete_after=delete_after)
+        if delete_after is not None:
+            await asyncio.sleep(delete_after)
             await self.bot.delete_message(ctx.message)
 
     @commands.group(pass_context=True, no_pm=True)
     @checks.admin_or_permissions(administrator=True)
-    async def regedit(self, ctx):
+    async def regedit(self, ctx: commands.Context):
         """Manages valid register roles."""
         if ctx.invoked_subcommand is None:
-            # Display valid register roles
+            # Send server's current settings
             server = ctx.message.server
             await self.bot.send_cmd_help(ctx)
-            valid_roles = []
-            if server.id in self.json:
-                for r in self.json[server.id]["roles"]:
-                    # Get the role name
-                    role = discord.utils.get(server.roles, id=r)
-                    if role is None:
-                        log.debug("Invalid role ID: {}".format(r))
-                        continue
-                    else:
-                        valid_roles.append(role.name)
-            msg = ("Valid register roles:\n"
-                   "{}"
-                   "".format(", ".join(sorted(valid_roles)))
-                   )
-            await self.bot.say(box(msg))
+            if server.id not in self.settings:
+                msg = box("Register is not enabled in this server. "
+                          "Use [p]regedit addrole to enable it.")
+            else:
+                valid_roles = [r.name for r in server.roles if r.id in self.settings[server.id]["roles"]]
+                delete_after = self.settings[server.id]["delete_after"]
+                quiet_status = None
+                if delete_after is None:
+                    quiet_status = "Quiet mode is disabled."
+                else:
+                    quiet_status = "Register commands are cleaned up after {} seconds".format(delete_after)
+                msg = box("{}\n"
+                          "Valid register roles:\n"
+                          "{}"
+                          "".format(quiet_status, ", ".join(sorted(valid_roles)) if valid_roles else None)
+                          )
+            await self.bot.say(msg)
 
     @regedit.command(name="addrole", pass_context=True, no_pm=True)
-    async def _regedit_addrole(self, ctx, *, role_name: str):
+    async def _regedit_addrole(self, ctx: commands.Context, *, role_name: str):
         """Adds a register role."""
         server = ctx.message.server
-        # --- CREATING ROLE ---
-        role = discord.utils.get(server.roles, name=role_name)
-        if role is None:
-            await self.bot.say('The {} role doesn\'t exist! Creating it now!'.format(role_name))
-            log.debug('Creating {} role in {}'.format(role_name, server.id))
-            try:
-                perms = discord.Permissions.none()
-                await self.bot.create_role(server, name=role_name, permissions=perms)
-                await self.bot.say("Role created!")
-            except discord.Forbidden:
-                await self.bot.say("I cannot create a role. Please assign Manage Roles to me!")
-            role = discord.utils.get(server.roles, name=role_name)
-        # --- DONE CREATING ROLE! ---
-        self.json_server_check(server)
-        # --- ADDING ROLE TO JSON ---
-        try:
-            if role.id not in self.json[server.id]["roles"]:
-                # ROLE NOT IN REGISTER
-                self.json[server.id]["roles"][role.id] = {'role_name': role.name}
-                dataIO.save_json(self.location, self.json)
-                await self.bot.say('``{}`` is now in register.'.format(role.name))
-            else:
-                # ROLE ALREADY IN REGISTER
-                await self.bot.say('``{}`` is already in register!'.format(role.name))
-        except:
-            await self.bot.say('Something went wrong.')
+        if server.id not in self.settings:
+            self._json_server_check(server.id)
+        role_id = next((r.id for r in server.roles if r.name == role_name and
+                       r.id not in self.settings[server.id]["roles"]), None)
+        if role_id is None:
+            await self.bot.say("Couldn't add that role to register. "
+                               "Make sure the role exists and isn't already added to register.")
+            return
+        else:
+            self.settings[server.id]["roles"].append(role_id)
+            dataIO.save_json(self.location, self.settings)
+            await self.bot.say("Role was successfully added to register.")
 
     @regedit.command(name="removerole", pass_context=True, no_pm=True)
     async def _regedit_removerole(self, ctx, *, role_name: str):
         """Removes a register role."""
         server = ctx.message.server
-        if server.id in self.json:
-            role = discord.utils.get(server.roles, name=role_name)
-            if role:
-                # ROLE IS IN SERVER
-                if role.id in self.json[server.id]["roles"]:
-                    # --- REMOVE ROLE FROM JSON ---
-                    del self.json[server.id]["roles"][role.id]
-                    dataIO.save_json(self.location, self.json)
-                    await self.bot.say('``{}`` role has been removed from register.'.format(role.name))
-                else:
-                    # ROLE ISN'T IN JSON
-                    await self.bot.say('``{}`` role isn\'t in register yet.'.format(role.name))
-            else:
-                # ROLE ISN'T IN SERVER
-                await self.bot.say('That role isn\'t in this server.')
-                # TODO : REMOVE NONEXISTENT ROLE FROM JSON
-                role_in_json = False
-                for r in self.json[server.id]["roles"]:
-                    if self.json[server.id]["roles"][r]["role_name"] == role_name:
-                        role_in_json = True
-                        # REMOVE ROLE FROM JSON
-                        del self.json[server.id]["roles"][r]
-                        dataIO.save_json(self.location, self.json)
-                        await self.bot.say('Role was in register regardless, and has been removed. It must have been renamed or deleted from the server.')
-                        break
+        if server.id not in self.settings:
+            await self.bot.say("Register is not enabled in this server.")
+            return
+        role_id = next((r.id for r in server.roles if r.name == role_name and
+                       r.id in self.settings[server.id]["roles"]), None)
+        if role_id is None:
+            await self.bot.say("Couldn't remove that role from register. "
+                               "Make sure the role exists and is in register.")
         else:
-            msg = 'There aren\'t any roles you can register for in this server.'.format(server.name)
-            await self.bot.say(box(msg))
+            self.settings[server.id]["roles"].remove(role_id)
+            dataIO.save_json(self.location, self.settings)
+            await self.bot.say("Role was successfully removed from register.")
 
-    @regedit.command(name="delcmds", pass_context=True, no_pm=True)
-    async def _regedit_delcmds(self, ctx):
-        """Toggles whether or not !register is deleted
-        Note: This forces WHISPER to be set to ON."""
-        server = ctx.message.server
-        self.json_server_check(server)
-        self.json[server.id]["delcmds"] = not self.json[server.id]["delcmds"]
-        if self.json[server.id]["delcmds"]:
-            await self.bot.say("Register commands will now be deleted after sending.")
-            if not self.json[server.id]["whisper"]:
-                self.json[server.id]["whisper"] = True
-                await self.bot.say("I will now respond to register commands via DM.")
-        else:
-            await self.bot.say("Register commands will no longer be deleted after sending.")
-        dataIO.save_json(self.location, self.json)
+    @regedit.command(name="quiet", pass_context=True, no_pm=True)
+    async def _regedit_quiet(self, ctx, delete_after: float):
+        """Make the bot clean up after a user registers.
         
-    @regedit.command(name="whisper", pass_context=True, no_pm=True)
-    async def _regedit_whisper(self, ctx):
-        """Toggles whether or not I respond to register commands via DM.
-        NOTE: Is always set to ON whilst DELCMDS is set to ON."""
+        <delete_after> is how many seconds the bot will wait before cleaning up.
+        Set to zero to disable quiet mode."""
         server = ctx.message.server
-        self.json_server_check(server)
-        if self.json[server.id]["delcmds"]:
-            await self.bot.say("DELCMDS is ON! Please use !regedit delcmds to toggle off before toggling WHISPER off.")
-        else:
-            self.json[server.id]["whisper"] = not self.json[server.id]["whisper"]
-            if self.json[server.id]["whisper"]:
-                await self.bot.say("I will now respond to register commands via DM.")
-            else:
-                await self.bot.say("I will no longer respond to register commands via DM.")
+        if server.id not in self.settings:
+            self._json_server_check(server.id)
+        if delete_after == 0:
+            delete_after = None
+        self.settings[server.id]["delete_after"] = delete_after
+        msg = "Register commands are now cleaned up after {} seconds.".format(delete_after)
+        if delete_after is None:
+            msg = "Cleaning up register commands is disabled."
+        await self.bot.say(msg)
+        dataIO.save_json(self.location, self.settings)
         
     @commands.command(pass_context=True, no_pm=True)
     @checks.serverowner_or_permissions(manage_roles=True)
@@ -254,11 +206,11 @@ class Register:
             await self.bot.say("The `{}` role does not exist. Remember role names are case-sensitive.\n".format(role_name) +
                                "If the role name is more than one word surround it with `\'` or `\"`.")
 
-    def json_server_check(self, server):
-        if server.id not in self.json:
-                log.debug('Adding server({}) in Json'.format(server.id))
-                self.json[server.id] = default_settings
-                dataIO.save_json(self.location, self.json)
+    def _json_server_check(self, server_id):
+        if server_id not in self.settings:
+                log.debug('Adding server({}) in Json'.format(server_id))
+                self.settings[server_id] = default_settings
+                dataIO.save_json(self.location, self.settings)
 
     
         
