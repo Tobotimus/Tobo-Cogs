@@ -5,3 +5,6 @@
 /.environment/Python35
 /.vs
 /env
+/Tobo-Cogs.pyproj
+/Tobo-Cogs.sln
+/info_maker.py
