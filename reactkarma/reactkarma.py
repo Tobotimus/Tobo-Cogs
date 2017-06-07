@@ -26,7 +26,7 @@ class ReactKarma():
         self.settings = dataIO.load_json(SETTINGS_PATH)
         self.setting_emojis = False # For knowing when emojis are being added/removed
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, no_pm=True)
     async def upvote(self, ctx):
         """See this server's upvote emoji."""
         emoji = self._get_emoji(ctx.message.server, UPVOTE)
@@ -35,7 +35,7 @@ class ReactKarma():
             msg = "The upvote emoji in this server is not set. Use !setupvote to do so (requires `manage emojis` permission)."
         await self.bot.say(msg)
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, no_pm=True)
     async def downvote(self, ctx):
         """See this server's downvote emoji."""
         emoji = self._get_emoji(ctx.message.server, DOWNVOTE)
@@ -90,7 +90,7 @@ class ReactKarma():
             await self.bot.say("{} has never received any karma!".format(user.display_name))
             return
 
-    @commands.command(name="setupvote", pass_context=True)
+    @commands.command(name="setupvote", pass_context=True, no_pm=True)
     @checks.admin_or_permissions(manage_emojis=True)
     async def set_upvote(self, ctx):
         """Set the upvote emoji in this server by reacting to the bot's response.
@@ -107,7 +107,7 @@ class ReactKarma():
             msg = "Setting the upvote emoji was cancelled."
         await self.bot.say(msg)
         
-    @commands.command(name="setdownvote", pass_context=True)
+    @commands.command(name="setdownvote", pass_context=True, no_pm=True)
     @checks.admin_or_permissions(manage_emojis=True)
     async def set_downvote(self, ctx):
         """Add a downvote emoji by reacting to the bot's response.
@@ -214,14 +214,6 @@ class ReactKarma():
             self.karma[user_id] = 0
         self.karma[user_id] += amount
         dataIO.save_json(KARMA_PATH, self.karma)
-        
-    async def _message_sent(self, message):
-        """Just for people the bot doesn't like"""
-        if message.author.id == "195803331329916928":
-            emoji = self._get_emoji(message.server, DOWNVOTE)
-            if emoji is None: 
-                emoji = u'👎'
-            await self.bot.add_reaction(message, emoji)
 
     def _get_all_members(self):
         """Get a list of members which have karma.
@@ -256,4 +248,4 @@ def setup(bot):
     bot.add_listener(n._reaction_added, "on_reaction_add")
     bot.add_listener(n._reaction_removed, "on_reaction_remove")
     bot.add_listener(n._message_sent, "on_message")
-    bot.add_cog(ReactKarma(bot))
+    bot.add_cog(n)
