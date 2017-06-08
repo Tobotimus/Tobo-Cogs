@@ -10,7 +10,7 @@ import copy
 
 log = logging.getLogger('red.register')
 FOLDER_PATH = "data/register"
-SETTINGS_PATH = "{}/settings.json"
+SETTINGS_PATH = "{}/settings.json".format(FOLDER_PATH)
 DEFAULT_SETTINGS = {
     "roles": [],
     "delete_after": None
