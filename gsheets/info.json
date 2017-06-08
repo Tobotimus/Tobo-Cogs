@@ -2,7 +2,7 @@
   "NAME": "GSheets",
   "AUTHOR": "Tobotimus",
   "SHORT": "Display data from Google Sheets in discord!",
-  "DISABLED": false,
+  "HIDDEN": false,
   "TAGS": ["spreadsheets", "google", "tables", "tabulate"],
   "DESCRIPTION": "Get ranges from Google Sheets, and display it as a table in discord.",
   "REQUIREMENTS": [ "tabulate", "google-api-python-client" ],

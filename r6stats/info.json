@@ -1,7 +1,6 @@
 {
   "NAME": "R6Stats",
   "AUTHOR": "Tobotimus",
-  "DISABLED": false,
   "HIDDEN":  true,
   "SHORT": "Get player stats for Rainbow Six: Siege",
   "TAGS": ["rainbow", "six",  "siege", "r6", "stats", "r6stats"],

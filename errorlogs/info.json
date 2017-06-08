@@ -2,7 +2,7 @@
   "NAME" : "ErrorLogs",
   "AUTHOR" : "Tobotimus",
   "SHORT" : "Log command errors in discord channels.",
-  "DISABLED" : false,
+  "HIDDEN" : false,
   "TAGS" : ["debug", "log", "errors"],
   "DESCRIPTION": "When a command error occurs, this cog will send a traceback and other info to whichever channels you have set as logs.",
   "REQUIREMENTS": [],
