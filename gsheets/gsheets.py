@@ -161,7 +161,7 @@ class GSheets:
         authorize_url = flow.step1_get_authorize_url()
         info_message = ("Use the link below to authorize the cog to communicate with Google Sheets, "
                         "then copy the code you recieve and paste it here.")
-        warn_message = ("It is not recommended to authorize the cog using "
+        warn_message = ("**NOTE**: It is not recommended to authorize the cog using "
                         "your personal Google Account; it is best to create a new Google Account, "
                         "and share any Sheets you would like to access with that google account.")
         embed = discord.Embed(title="Authorize GSheets", url=authorize_url, description=warn_message)
