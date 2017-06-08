@@ -221,7 +221,7 @@ def check_folder():
 def check_file():
     if dataIO.is_valid_json(SETTINGS_PATH) is False:
         log.debug('Creating json: settings.json')
-        dataIO.save_json(f, SETTINGS_PATH)
+        dataIO.save_json(SETTINGS_PATH, {})
 
 def setup(bot):
     check_folder()
