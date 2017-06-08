@@ -1,4 +1,5 @@
 import os
+import re
 import httplib2
 import discord
 from discord.ext import commands
@@ -17,8 +18,7 @@ except Exception as e:
 
 FOLDER_PATH = "data/gsheets"
 SHEETS_PATH = "{}/sheets.json".format(FOLDER_PATH)
-CREDENTIALS_DIR = "data/gsheets/.credentials"
-CREDENTIAL_PATH = "{}/red-gsheets.json".format(CREDENTIALS_DIR)
+CREDENTIAL_PATH = "{}/credentials.json".format(FOLDER_PATH)
 FLOW_KWARGS = {
     "client_id": "681019046420-g62edq8nu52adniue2400g8eus64a9e7.apps.googleusercontent.com",
     "client_secret": "38xBpRxw44h7-eZcS9kHHZVn",
@@ -31,19 +31,8 @@ FLOW_KWARGS = {
 CHANNEL = "channel"
 SERVER = "server"
 GLOBAL = "global"
-PRIVACIES = ( # For sheet privacy settings
-    CHANNEL,
-    SERVER,
-    GLOBAL
-)
-NOT_FOUND_MESSAGE = ("That spreadsheet was not found. Make sure "
-                     "the spreadsheet is shared with the bot's "
-                     "authorized account.")
 
 class InvalidSheetsURL(Exception):
-    pass
-
-class SpreadsheetNotFound(Exception):
     pass
 
 class GSheets:
@@ -62,27 +51,30 @@ class GSheets:
 
     @checks.mod_or_permissions(manage_messages=True)
     @commands.command(pass_context=True, no_pm=True)
-    async def addsheet(self, ctx: commands.Context, name: str, url: str, privacy: str="server"):
+    async def addsheet(self, ctx: commands.Context, name: str, url: str, privacy: str=SERVER):
         """Add a sheet so you can get ranges from it.
         Arguments:
          - <name> Whatever you'd like the name the sheet
          - <url> The URL to the sheet
          - <privacy> (optional) where this sheet can be accessed (global, server or channel)
 
-        NOTE: Sheets will take precedence over other sheets with conflicting names in wider scopes.
+        NOTE: Sheets can have conflicting names if they are in different scopes. When getting 
+        data from those sheets, it will use the sheet with the most local scope. Also, sheets 
+        which are added in a server's default channel cannot have 'channel' privacy.
         """
         if self.gc is None:
             await self.bot.say("You must authorize the cog first. See `[p]authsheets`.")
             return
-        try:
-            privacy = PRIVACIES.index(privacy)
-        except ValueError:
-            await("Invalid privacy option. Must be `global`, `server` or `channel`.")
+        channel = ctx.message.channel
+        if channel.is_private:
+            server_id = None
+        else:
+            server_id = channel.server.id
+        scope = self.get_scope(privacy, channel.id, server_id)
+        if scope is None:
+            await self.bot.say("Invalid privacy option. Must be `global`, `server` or `channel`.")
             return
-        scope = (ctx.message.channel.id,
-                 ctx.message.server.id,
-                 GLOBAL)[privacy]
-        if scope in self.sheets and any(s["name"] == name for s in self.sheets[scope]):
+        if self.name_in_scope(name, scope):
             await self.bot.say("There is already a sheet with that name in your scope.")
             return
         try:
@@ -90,16 +82,12 @@ class GSheets:
         except InvalidSheetsURL:
             await self.bot.say("That doesn't look like a valid URL.")
             return
-        except SpreadsheetNotFound as e:
-            await self.bot.say(e.args[0])
+        except HttpError as e:
+            await self.bot.say(e._get_reason())
             return
-        sheet = { # Only name and ID is stored, so ranges can be requested later via the name
-            "name" : name,
-            "id"   : s_id
-        }
         if scope not in self.sheets:
-            self.sheets[scope] = []
-        self.sheets[scope].append(sheet)
+            self.sheets[scope] = {}
+        self.sheets[scope][name] = s_id
         dataIO.save_json(SHEETS_PATH, self.sheets)
         await self.bot.say("The sheet has been added.")
 
@@ -111,10 +99,12 @@ class GSheets:
         scopes = (ctx.message.channel.id,
                   ctx.message.server.id,
                   GLOBAL)
-        for scope in scopes: # Check if name exists
-            sheet = next((s for s in self.sheets.get(scope, []) if s["name"] == name), None)
-            if sheet:
-                self.sheets[scope].remove(sheet)
+        for scope in scopes:
+            try:
+                self.sheets[scope].pop(name)
+            except:
+                pass
+            else:
                 dataIO.save_json(SHEETS_PATH, self.sheets)
                 await self.bot.say("The sheet has been removed.")
                 return
@@ -132,18 +122,17 @@ class GSheets:
             await self.bot.say("You must authorize the cog first. See `[p]authsheets`.")
             return
         channel = ctx.message.channel
-        sheet = self.get_sheet(channel, sheet_name)
-        if sheet is not None: sheet = sheet["id"]
-        else:
+        sheet_id = self.get_sheet_id(channel, sheet_name)
+        if sheet_id is None:
             await self.bot.say("Couldn't find a sheet with that name in your scope.")
             return
         table = []
         for range in ranges:
             try:
                 if not table:
-                    table = self.gc.get_range(sheet, range)
+                    table = self.gc.get_range(sheet_id, range)
                 else:
-                    temp_table = self.gc.get_range(sheet, range)
+                    temp_table = self.gc.get_range(sheet_id, range)
                     i = 0
                     for row in temp_table:
                         if i == len(table):
@@ -155,9 +144,9 @@ class GSheets:
             except HttpError as e:
                 await self.bot.say(e._get_reason())
                 return
-            except SpreadsheetNotFound as e:
-                await self.bot.say(e.args[0])
-                return
+        if not table:
+            await self.bot.say("That range is empty.")
+            return
         headers = table.pop(0)
         msg = '\n%s\n' % tabulate(table, headers)
         msg = pagify(msg)
@@ -190,37 +179,44 @@ class GSheets:
                 await self.bot.say("Authentication has failed: {}".format(e.args[0]))
                 return
         self.gc = GSheetsClient(credentials)
-        if not os.path.exists(CREDENTIALS_DIR):
-            os.makedirs(CREDENTIALS_DIR)
         store = Storage(CREDENTIAL_PATH)
         store.put(credentials)
         credentials.set_store(store)
         await self.bot.say("Authentication successful.")
 
-    def name_in_scope(self, name, privacy, scope_id=None):
+    def name_in_scope(self, name, scope_id):
         """Returns True if there is already a sheet with the given name in 
-        the given scope. However, if `privacy` is more local than the privacy 
-        of any conflicting sheets, the function will return False."""
-        if privacy == CHANNEL and scope_id in self.sheets:
-            return any(s["name"] == name for s in self.sheets[scope_id])
-        elif privacy == GLOBAL:
-            return any(s["name"] == name for s in self.sheets[GLOBAL])
-        return False
+        the given scope."""
+        return scope_id in self.sheets and name in self.sheets[scope_id]
 
-    def get_sheet(self, channel: discord.Channel, name: str):
-        scopes = (channel.id,
-                  channel.server.id,
-                  GLOBAL)
+    def get_sheet_id(self, channel: discord.Channel, name: str):
+        """Return the sheet with the given name and context. Returns None 
+        if the sheet does not exist."""
+        if channel.is_private:
+            scopes = (channel.id, GLOBAL)
+        else:
+            scopes = (channel.id, channel.server.id, GLOBAL)
         for scope in scopes:
-            sheet = next((s for s in self.sheets.get(scope, []) if s["name"] == name), None)
-            if sheet is not None:
+            try:
+                sheet = self.sheets[scope][name]
+            except:
+                pass
+            else:
                 return sheet
+
+    def get_scope(self, privacy, channel_id: str, server_id: str):
+        """Get a scope given a sheet's privacy and context. Returns None if 
+        privacy option is invalid."""
+        return {
+            CHANNEL: channel_id,
+            SERVER: server_id,
+            GLOBAL: GLOBAL
+        }.get(privacy, None)
 
     def get_credentials(self):
         """Gets user credentials from storage.
         
-        If nothing has been stored, or if the stored credentials are invalid, 
-        the OAuth2 flow is completed to obtain the new credentials.
+        Returns None if nothing has been stored.
         
         Returns:
             Credentials, the obtained credential.
@@ -247,7 +243,7 @@ class GSheetsClient:
 
         Raises InvalidSheetsURL if the spreadsheet's ID could not 
         be found in the URL.
-        Raises SpreadsheetNotFound if the client could not find or 
+        Raises HttpError if the client could not find or 
         access the spreadsheet.
         
         Returns:
@@ -267,27 +263,19 @@ class GSheetsClient:
         """Checks if the client can access the sheet with the given 
         key. 
 
-        Raises SpreadsheetNotFound if the client could not find or 
+        Raises HttpError if the client could not find or 
         access the spreadsheet.
         
         Returns:
             The spreadsheet's ID.
         """
-        try:
-            self.service.spreadsheets().get(
-                spreadsheetId=key).execute()
-        except HttpError as e:
-            raise e
-        except:
-            raise SpreadsheetNotFound(NOT_FOUND_MESSAGE)
+        self.service.spreadsheets().get(
+            spreadsheetId=key).execute()
         return key
 
     def get_range(self, id: str, range: str):
-        try:
-            result = self.service.spreadsheets().values().get(
-                spreadsheetId=id, range=range).execute()
-        except:
-            raise SpreadsheetNotFound(NOT_FOUND_MESSAGE)
+        result = self.service.spreadsheets().values().get(
+            spreadsheetId=id, range=range).execute()
         return result.get('values', [])
 
 def check_folders():
