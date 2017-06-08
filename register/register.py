@@ -1,12 +1,12 @@
-import discord
-from discord.ext import commands
+import os
+import copy
 import asyncio
 import logging
+import discord
+from discord.ext import commands
 from cogs.utils import checks
 from cogs.utils.dataIO import dataIO
 from cogs.utils.chat_formatting import box
-import os
-import copy
 
 log = logging.getLogger('red.register')
 FOLDER_PATH = "data/register"
@@ -35,7 +35,7 @@ class Register:
         server = ctx.message.server
         user = ctx.message.author
         task = None # Whether we are removing or adding a role, or doing nothing
-        delete_after = None # set if the 'quiet' option is on
+        delete_after = None # is set if the 'quiet' option is on
         msg = ''
         if server.id not in self.settings:
             return
@@ -54,7 +54,7 @@ class Register:
                         await self.bot.remove_roles(user, role)
                     msg = "The {} role has been {} {}.".format(role_name, task, user.display_name)
                 except discord.errors.Forbidden:
-                    if not server.me.manage_roles:
+                    if not server.me.server_permissions.manage_roles:
                         msg = "I don't have the `Manage Roles` permission."
                     elif role > server.me.top_role:
                         msg = "I cannot manage roles higher than my top role's position."
@@ -74,7 +74,12 @@ class Register:
         await self.bot.say(msg, delete_after=delete_after)
         if delete_after is not None:
             await asyncio.sleep(delete_after)
-            await self.bot.delete_message(ctx.message)
+            try:
+                await self.bot.delete_message(ctx.message)
+            except discord.errors.NotFound: # Just in case some fool deletes their message before the bot does
+                pass
+            except discord.errors.Forbidden: # Bot doesn't have permission to delete messages
+                pass # We don't want to make even more of a mess
 
     @commands.group(pass_context=True, no_pm=True)
     @checks.admin_or_permissions(administrator=True)
@@ -209,9 +214,9 @@ class Register:
 
     def _json_server_check(self, server_id):
         if server_id not in self.settings:
-                log.debug('Adding server({}) in Json'.format(server_id))
-                self.settings[server_id] = DEFAULT_SETTINGS
-                dataIO.save_json(SETTINGS_PATH, self.settings)
+            log.debug('Adding server({}) in Json'.format(server_id))
+            self.settings[server_id] = DEFAULT_SETTINGS
+            dataIO.save_json(SETTINGS_PATH, self.settings)
         
 def check_folder():
     if not os.path.exists(FOLDER_PATH):
