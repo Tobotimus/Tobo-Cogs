@@ -9,7 +9,9 @@ import os
 import copy
 
 log = logging.getLogger('red.register')
-default_settings = {
+FOLDER_PATH = "data/register"
+SETTINGS_PATH = "{}/settings.json"
+DEFAULT_SETTINGS = {
     "roles": [],
     "delete_after": None
 }
@@ -22,8 +24,7 @@ class Register:
     
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.location = 'data/register/settings.json'
-        self.settings = dataIO.load_json(self.location)
+        self.settings = dataIO.load_json(SETTINGS_PATH)
 
     @commands.command(pass_context=True, no_pm=True)
     async def register(self, ctx: commands.Context, *, role_name: str=''):
@@ -115,7 +116,7 @@ class Register:
             return
         else:
             self.settings[server.id]["roles"].append(role_id)
-            dataIO.save_json(self.location, self.settings)
+            dataIO.save_json(SETTINGS_PATH, self.settings)
             await self.bot.say("Role was successfully added to register.")
 
     @regedit.command(name="removerole", pass_context=True, no_pm=True)
@@ -132,7 +133,7 @@ class Register:
                                "Make sure the role exists and is in register.")
         else:
             self.settings[server.id]["roles"].remove(role_id)
-            dataIO.save_json(self.location, self.settings)
+            dataIO.save_json(SETTINGS_PATH, self.settings)
             await self.bot.say("Role was successfully removed from register.")
 
     @regedit.command(name="quiet", pass_context=True, no_pm=True)
@@ -151,7 +152,7 @@ class Register:
         if delete_after is None:
             msg = "Cleaning up register commands is disabled."
         await self.bot.say(msg)
-        dataIO.save_json(self.location, self.settings)
+        dataIO.save_json(SETTINGS_PATH, self.settings)
         
     @commands.command(pass_context=True, no_pm=True)
     @checks.serverowner_or_permissions(manage_roles=True)
@@ -209,26 +210,20 @@ class Register:
     def _json_server_check(self, server_id):
         if server_id not in self.settings:
                 log.debug('Adding server({}) in Json'.format(server_id))
-                self.settings[server_id] = default_settings
-                dataIO.save_json(self.location, self.settings)
-
-    
+                self.settings[server_id] = DEFAULT_SETTINGS
+                dataIO.save_json(SETTINGS_PATH, self.settings)
         
 def check_folder():
-    if not os.path.exists('data/register'):
-        log.debug('Creating folder: data/register')
-        os.makedirs('data/register')
-
+    if not os.path.exists(FOLDER_PATH):
+        log.debug("Creating " + FOLDER_PATH + " folder...")
+        os.makedirs(FOLDER_PATH)
 
 def check_file():
-    f = 'data/register/settings.json'
-    if dataIO.is_valid_json(f) is False:
+    if dataIO.is_valid_json(SETTINGS_PATH) is False:
         log.debug('Creating json: settings.json')
-        dataIO.save_json(f, {})
-
+        dataIO.save_json(f, SETTINGS_PATH)
 
 def setup(bot):
     check_folder()
     check_file()
-    n = Register(bot)
-    bot.add_cog(n)
+    bot.add_cog(Register(bot))

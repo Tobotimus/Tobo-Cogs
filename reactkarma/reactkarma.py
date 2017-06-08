@@ -8,9 +8,9 @@ from cogs.utils.dataIO import dataIO
 from cogs.utils.chat_formatting import inline, pagify, box
 from unicodedata import name, lookup
 
-DIR_PATH = "data/reactkarma"
-KARMA_PATH = "{}/karma.json".format(DIR_PATH)
-SETTINGS_PATH = "{}/settings.json".format(DIR_PATH)
+FOLDER_PATH = "data/reactkarma"
+KARMA_PATH = "{}/karma.json".format(FOLDER_PATH)
+SETTINGS_PATH = "{}/settings.json".format(FOLDER_PATH)
 DOWNVOTE = "downvote"
 UPVOTE = "upvote"
 
@@ -229,11 +229,10 @@ class ReactKarma():
             members.append(member)
         return members
 
-
 def check_folders():
-    if not os.path.exists(DIR_PATH):
-        print("Creating {} folder...".format(DIR_PATH))
-        os.makedirs(DIR_PATH)
+    if not os.path.exists(FOLDER_PATH):
+        print("Creating {} folder...".format(FOLDER_PATH))
+        os.makedirs(FOLDER_PATH)
 
 def check_files():
     if not dataIO.is_valid_json(KARMA_PATH):
@@ -247,5 +246,4 @@ def setup(bot):
     n = ReactKarma(bot)
     bot.add_listener(n._reaction_added, "on_reaction_add")
     bot.add_listener(n._reaction_removed, "on_reaction_remove")
-    bot.add_listener(n._message_sent, "on_message")
     bot.add_cog(n)
