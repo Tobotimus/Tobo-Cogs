@@ -1,7 +1,5 @@
-import sys
 import os
 import traceback
-import datetime
 import discord
 from discord.ext import commands
 from cogs.utils import checks
