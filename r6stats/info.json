@@ -1,7 +1,8 @@
 {
   "NAME" : "R6 Stats",
   "AUTHOR": "Tobotimus",
-  "DISABLED":  true,
+  "DISABLED": false,
+  "HIDDEN":  true,
   "SHORT" : "Get player stats for Rainbow Six: Siege",
   "TAGS" : ["rainbow", "six",  "siege", "r6", "stats", "r6stats"],
   "DESCRIPTION" : "Get general, fun, ranked, casual, per-operator or per-weapon stats for any R6: Siege player on any platform!",
