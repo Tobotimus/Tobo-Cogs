@@ -1,9 +1,10 @@
 {
-  "NAME" : "GSheets",
-  "AUTHOR" : "Tobotimus",
-  "SHORT" : "Display data from Google Sheets in discord!",
-  "DISABLED" : false,
-  "TAGS" : ["spreadsheets", "google", "tables", "tabulate"],
-  "DESCRIPTION" : "Get ranges from Google Sheets, and display it as a table in discord.",
-  "INSTALL_MSG" : "Must be authorized first. See `[p]authsheets`\nYou can add sheets with `[p]addsheet`.\nGet ranges from that sheet with `[p]gettable`"
+  "NAME": "GSheets",
+  "AUTHOR": "Tobotimus",
+  "SHORT": "Display data from Google Sheets in discord!",
+  "DISABLED": false,
+  "TAGS": ["spreadsheets", "google", "tables", "tabulate"],
+  "DESCRIPTION": "Get ranges from Google Sheets, and display it as a table in discord.",
+  "REQUIREMENTS": [ "tabulate", "google-api-python-client" ],
+  "INSTALL_MSG": "Must be authorized first. See `[p]authsheets`\nYou can add sheets with `[p]addsheet`.\nGet ranges from that sheet with `[p]gettable`"
 }

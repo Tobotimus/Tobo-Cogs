@@ -1,10 +1,11 @@
 {
-  "NAME" : "R6 Stats",
+  "NAME": "R6Stats",
   "AUTHOR": "Tobotimus",
   "DISABLED": false,
   "HIDDEN":  true,
-  "SHORT" : "Get player stats for Rainbow Six: Siege",
-  "TAGS" : ["rainbow", "six",  "siege", "r6", "stats", "r6stats"],
-  "DESCRIPTION" : "Get general, fun, ranked, casual, per-operator or per-weapon stats for any R6: Siege player on any platform!",
-  "INSTALL_MSG" : "Must be set up with an ubisoft account first. See `[p]r6auth` in PM.\nUse `[p]r6stats` to get stats."
+  "SHORT": "Get player stats for Rainbow Six: Siege",
+  "TAGS": ["rainbow", "six",  "siege", "r6", "stats", "r6stats"],
+  "DESCRIPTION": "Get general, fun, ranked, casual, per-operator or per-weapon stats for any R6: Siege player on any platform!",
+  "REQUIREMENTS": ["r6sapi"],
+  "INSTALL_MSG": "Must be set up with an ubisoft account first. See `[p]r6auth` in PM.\nUse `[p]r6stats` to get stats."
 }

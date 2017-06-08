@@ -4,6 +4,7 @@
   "SHORT" : "Log command errors in discord channels.",
   "DISABLED" : false,
   "TAGS" : ["debug", "log", "errors"],
-  "DESCRIPTION" : "When a command error occurs, this cog will send a traceback and other info to whichever channels you have set as logs.",
+  "DESCRIPTION": "When a command error occurs, this cog will send a traceback and other info to whichever channels you have set as logs.",
+  "REQUIREMENTS": [],
   "INSTALL_MSG" : "To enable error logging in a particular channel, use `[p]logerrors` in that channel."
 }
