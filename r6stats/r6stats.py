@@ -1,8 +1,10 @@
 import os
+import json
 import logging
 import aiohttp
 import r6sapi as api
 import discord
+from string import ascii_lowercase, digits
 from discord.ext import commands
 from cogs.utils.dataIO import dataIO
 from cogs.utils import checks
@@ -43,6 +45,12 @@ PLATFORM_COLOURS = {
     XBOX:         discord.colour.Colour.green(),
     PLAYSTATION:  discord.colour.Colour.magenta(),
     UPLAY:        discord.colour.Colour.blue()
+}
+
+PLATFORM_USERNAMES = {
+    XBOX: "Xbox Gamertag",
+    PLAYSTATION: "PSN ID",
+    UPLAY: "Uplay Nickname"
 }
 
 REGIONS = {
@@ -89,6 +97,9 @@ class APIError(R6StatsError):
 
 class ResourceNotFound(R6StatsError):
     """Search had no results."""
+
+class InvalidUsername(R6StatsError):
+    """That is not a valid {platform_username}."""
 
 class HttpError(R6StatsError):
     """HTTP data was invalid or unexpected"""
@@ -285,7 +296,7 @@ class R6Stats:
         
         [result] (optional) the index of the search result you want to retrieve."""
         await self.bot.send_typing(ctx.message.channel)
-        platform = R6DB_PLATFORMS.get(PLATFORMS.get(platform.lower()))
+        platform = PLATFORMS.get(platform.lower())
         if platform is None:
             await self.bot.say("Invalid platform specified.")
             return
@@ -294,6 +305,11 @@ class R6Stats:
         except HttpError as e:
             _LOGGER.debug(str(e))
             await self.bot.say(e._get_reason())
+            return
+        except InvalidUsername as e:
+            _LOGGER.debug(str(e))
+            await self.bot.say(e.__doc__.format(
+                platform_username=PLATFORM_USERNAMES.get(platform)))
             return
         except R6StatsError as e:
             _LOGGER.debug(str(e))
@@ -416,7 +432,11 @@ class R6StatsClient:
                          exact: int=1):
         """Requests a player from R6DB and returns their 
         data as a json. Usernames are case-sensitive."""
+        permitted_chars = set(ascii_lowercase + digits + '._- ')
+        if any(c not in permitted_chars for c in username.lower()):
+            raise InvalidUsername()
         username = username.replace(' ', '%20')
+        platform = R6DB_PLATFORMS.get(platform)
         url = ("https://{platform}r6db.com/api/v2/players/?"
                "name={username}&"
                "exact={exact}"
@@ -460,7 +480,6 @@ class R6StatsClient:
         if not ret:
             raise ResourceNotFound()
         return ret
-
 
 def check_folders():
     if not os.path.exists(FOLDER_PATH):
