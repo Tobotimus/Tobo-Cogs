@@ -167,7 +167,7 @@ class R6Stats:
             data = discord.Embed(title=username, 
                                  description="General stats. Use "
                                  "subcommands for more specific stats.")
-            data.timestamp = datetime.datetime.now()
+            data.timestamp = ctx.message.timestamp
             data.colour = PLATFORM_COLOURS.get(platform)
             data.set_thumbnail(url=player.icon_url)
             ratio = ("{0:.2f}".format(player.kills / player.deaths) 
@@ -218,7 +218,7 @@ class R6Stats:
             data = discord.Embed(title=username, 
                                  description=("Ranked stats for {} region"
                                               "".format(REGION_NAMES.get(region))))
-            data.timestamp = datetime.datetime.now()
+            data.timestamp = ctx.message.timestamp
             data.colour = PLATFORM_COLOURS.get(platform)
             w_perc = ("{0:.1f}".format(rank.wins/(rank.losses+rank.wins)*100) 
                       if rank.losses+rank.wins != 0 else "--.-")
@@ -263,7 +263,7 @@ class R6Stats:
             platform = player.platform
             username = player.name
             data = discord.Embed(title=username, description="Miscellaneous stats.")
-            data.timestamp = datetime.datetime.now()
+            data.timestamp = ctx.message.timestamp
             data.colour = PLATFORM_COLOURS.get(platform)
             data.set_thumbnail(url=player.icon_url)
             useful =  "**Assists:** {}\n".format(player.kill_assists) +\
