@@ -375,11 +375,11 @@ class R6Stats:
             if player['lastPlayed'] is None:
                 player['lastPlayed'] = '(unknown)'
             elif player['lastPlayed'] == 0:
-                player['lastPlayed'] == 'Today'
+                player['lastPlayed'] = 'Today'
             elif player['lastPlayed'] == 1:
-                played['lastPlayed'] == 'Yesterday'
+                player['lastPlayed'] = 'Yesterday'
             else:
-                player['lastPlayed'] = "%s days ago" % player['lastPlayed']
+                player['lastPlayed'] = "{} days ago".format(player['lastPlayed'])
             msg += ("\n**{idx}. {name}**  | Lvl {lvl} | Rank: {rank} {region}"
                     " | Last played {last_played}"
                     "".format(idx=idx, name=player.get('name'), lvl=player.get('level'), 
