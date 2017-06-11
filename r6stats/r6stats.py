@@ -1,5 +1,4 @@
 import os
-import json
 import logging
 import aiohttp
 import r6sapi as api
@@ -284,24 +283,24 @@ class R6Stats:
     async def r6db(self, ctx: commands.Context, username: str, platform: str='Uplay', result:str=''):
         """Search a player's aliases on R6DB.
         
-        [result] (optional) is the index of the search result you want to retrieve."""
+        [result] (optional) the index of the search result you want to retrieve."""
         await self.bot.send_typing(ctx.message.channel)
-        platform = R6DB_PLATFORMS.get(platform.lower())
+        platform = R6DB_PLATFORMS.get(PLATFORMS.get(platform.lower()))
         if platform is None:
             await self.bot.say("Invalid platform specified.")
             return
         try:
             search_results = await self.client.get_fuzzy(username, platform=platform)
         except HttpError as e:
-            _LOGGER.error(str(e))
+            _LOGGER.debug(str(e))
             await self.bot.say(e._get_reason())
             return
         except R6StatsError as e:
-            _LOGGER.error(str(e))
+            _LOGGER.debug(str(e))
             await self.bot.say(e.__doc__)
             return
         if not (result and result.isdigit() and int(result) > 0):
-            while True:
+            while search_results:
                 msg = self._format_search_results(search_results)
                 await self.bot.say(msg)
                 response = await self.bot.wait_for_message(
@@ -318,6 +317,9 @@ class R6Stats:
             if result > len(search_results): await self.bot.say("There weren't that many search results!")
             return
         player = search_results[result-1]
+        if not player['aliases']:
+            await self.bot.say("This player has no known aliases.")
+            return
         msg = 'Here are the aliases for **{username}**:\n'.format(username=player['name'])
         alias_str = 'Date Created | Alias\n------------ | ------------'
         self._prepare_dates(player['aliases'])
@@ -354,11 +356,19 @@ class R6Stats:
         for idx, player in enumerate(search_results):
             idx += 1 # We want a 1-based list
             rank_info = self._get_rank_info(player['ranks'])
+            if player['lastPlayed'] is None:
+                player['lastPlayed'] = '(unknown)'
+            elif player['lastPlayed'] == 0:
+                player['lastPlayed'] == 'Today'
+            elif player['lastPlayed'] == 1:
+                played['lastPlayed'] == 'Yesterday'
+            else:
+                player['lastPlayed'] = "%s days ago" % player['lastPlayed']
             msg += ("\n**{idx}. {name}**  | Lvl {lvl} | Rank: {rank} {region}"
-                    " | Last played {days} days ago"
+                    " | Last played {last_played}"
                     "".format(idx=idx, name=player.get('name'), lvl=player.get('level'), 
                                 rank=rank_info[0], region=rank_info[2], 
-                                days=player['lastPlayed']))
+                                last_played=player['lastPlayed']))
             previous = '`{}`'.format("`, `".join(player['preview'])) if player['preview'] else 'None'
             msg += ("\n    *Previous aliases:* {}"
                     "".format(previous))
@@ -406,16 +416,17 @@ class R6StatsClient:
                          exact: int=1):
         """Requests a player from R6DB and returns their 
         data as a json. Usernames are case-sensitive."""
-        resp = await self.session.get("https://{platform}r6db.com/api/v2/players/?"
-                                      "name={username}&"
-                                      "exact={exact}"
-                                      "".format(platform=platform,
-                                                username=username,
-                                                exact=exact))
+        username = username.replace(' ', '%20')
+        url = ("https://{platform}r6db.com/api/v2/players/?"
+               "name={username}&"
+               "exact={exact}"
+               "".format(platform=platform,
+                         username=username.replace(' ', '%20'),
+                         exact=exact))
+        _LOGGER.info("Getting from %s" % url)
+        resp = await self.session.get(url)
         if resp.status != 200:
             raise HttpError(resp=resp, content=await resp.json())
-        if not resp.content:
-            raise ResourceNotFound()
         return await resp.json()
 
     async def get_fuzzy(self, username: str, *,
@@ -426,11 +437,11 @@ class R6StatsClient:
         
         Only returns the top 5 results."""
         data = await self.get_player(username, platform=platform, exact=0)
-        if not data:
-            raise ResourceNotFound()
         ret = []
         for player in data:
-            if not player['lastPlayed'] or player['lastPlayed'].get('last_played') is None:
+            if not player['lastPlayed'] or (
+                player['lastPlayed'].get('last_played') is None and 
+                player['level'] == 0):
                 continue # We don't care about players who haven't played
             player['name'] = player['aliases'].pop()['name']
             player['preview'] = []
@@ -438,11 +449,16 @@ class R6StatsClient:
                 player['preview'].append(alias['name'])
                 if idx >= 2:
                     break
-            last_played_date = datetime.strptime(
-                player['lastPlayed'].get('last_played'), "%Y-%m-%dT%H:%M:%S.%fZ")
-            player['lastPlayed'] = (datetime.utcnow() - last_played_date).days
+            if player['lastPlayed'].get('last_played') is None:
+                player['lastPlayed'] = None # For some reason this field is sometimes empty
+            else:
+                last_played_date = datetime.strptime(
+                    player['lastPlayed'].get('last_played'), "%Y-%m-%dT%H:%M:%S.%fZ")
+                player['lastPlayed'] = (datetime.utcnow() - last_played_date).days
             del player['updated_at']
             ret.append(player)
+        if not ret:
+            raise ResourceNotFound()
         return ret
 
 
