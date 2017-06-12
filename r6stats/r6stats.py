@@ -17,7 +17,7 @@ SETTINGS_PATH = "{}/settings.json".format(FOLDER_PATH)
 DEFAULT_SETTINGS = {}
 
 UPLAY = 'uplay'
-XBOX = 'xb1'
+XBOX = 'xbl'
 PLAYSTATION = 'psn'
 NA = 'ncsa'
 EU = 'emea'
@@ -174,12 +174,11 @@ class R6Stats:
                      if player.deaths != 0 else "-.--")
             hs = ("{0:.1f}".format(player.headshots/player.kills*100) 
                   if player.kills != 0 else "--.-")
-            k_d = ("{kills} - {deaths}\n".format(player.kills, player.deaths) +\
+            k_d = ("{kills} - {deaths}\n"
                    "(Ratio: {ratio})"
                    "".format(kills=player.kills,
                              deaths=player.deaths,
-                             ratio=ratio)
-                   )
+                             ratio=ratio))
             w_perc = ("{0:.1f}".format(player.matches_won/player.matches_played*100) 
                       if player.matches_played != 0 else "--.-")
             w_l = "{} - {}".format(player.matches_won, player.matches_lost)
@@ -216,21 +215,29 @@ class R6Stats:
             username = player.name
             rank = await player.get_rank(region)
             data = discord.Embed(title=username, 
-                                 description=("Ranked stats for {} region"
+                                 description=(
+                                     "Ranked stats for {} region"
                                               "".format(REGION_NAMES.get(region))))
             data.timestamp = ctx.message.timestamp
             data.colour = PLATFORM_COLOURS.get(platform)
-            w_perc = ("{0:.1f}".format(rank.wins/(rank.losses+rank.wins)*100) 
-                      if rank.losses+rank.wins != 0 else "--.-")
+            w_perc = ("{0:.1f}".format(
+                rank.wins/(rank.losses+rank.wins)*100)
+                     if rank.losses+rank.wins != 0 else "--.-")
             if rank.get_bracket() != api.Rank.UNRANKED:
                 data.set_thumbnail(url=rank.get_icon_url())
-            rank_s = "{}\n".format(rank.rank) +\
-                     "(Max: {})".format(api.Rank.RANKS[rank.max_rank])
+            rank_s = ("{rank_name}\n"
+                      "(Max: {max})"
+                      "".format(rank_name=rank.rank, 
+                                max=api.Rank.RANKS[rank.max_rank]))
             data.add_field(name="Rank", value=rank_s)
-            mmr = "{}\n".format(int(rank.mmr)) +\
-                  "(Max: {})\n".format(int(rank.max_mmr)) +\
-                  "(Next Rank: {})\n".format(int(rank.next_rank_mmr)) +\
-                  "(Uncertainty: {})".format(int(rank.skill_stdev * 100))
+            mmr = ("{mmr}\n"
+                   "(Max: {max_mmr})\n"
+                   "(Next Rank: {next_mmr})\n"
+                   "(Uncertainty: {stdev})"
+                   "".format(mmr=int(rank.mmr), 
+                             max_mmr=int(rank.max_mmr), 
+                             next_mmr=int(rank.next_rank_mmr), 
+                             stdev=int(rank.skill_stdev * 100)))
             data.add_field(name="MMR", value=mmr)
             record = ("{wins} - {losses}\n"
                       "(Abandons: {abandons})\n"
@@ -262,24 +269,39 @@ class R6Stats:
                 return
             platform = player.platform
             username = player.name
-            data = discord.Embed(title=username, description="Miscellaneous stats.")
+            data = discord.Embed(title=username, 
+                                 description="Miscellaneous stats.")
             data.timestamp = ctx.message.timestamp
             data.colour = PLATFORM_COLOURS.get(platform)
             data.set_thumbnail(url=player.icon_url)
-            useful =  "**Assists:** {}\n".format(player.kill_assists) +\
-                      "**Revives:** {}\n".format(player.revives) +\
-                      "**Reinforcements:** {}".format(player.reinforcements_deployed)
+            useful =  ("**Assists:** {assists}\n"
+                       "**Revives:** {revives}\n"
+                       "**Reinforcements:** {reinfs}"
+                       "".format(assists=player.kill_assists,
+                                 revives=player.revives,
+                                 reinfs=player.reinforcements_deployed))
             data.add_field(name="Usefulness", value=useful)
-            useless = "**Suicides:** {}\n".format(player.suicides) +\
-                      "**Barricades:** {}".format(player.barricades_deployed)
+            useless = ("**Suicides:** {suicides}\n"
+                       "**Barricades:** {barricades}"
+                       "".format(suicides=player.suicides,
+                                 barricades=player.barricades_deployed))
             data.add_field(name="Uselessness", value=useless)
-            extras =  "**Gadgets Destroyed:** {}\n".format(player.gadgets_destroyed) +\
-                      "**Blind Kills:** {}\n".format(player.blind_kills) +\
-                      "**Melee Kills:** {}\n".format(player.melee_kills) +\
-                      "**Hotbreaches:** {}".format(player.rappel_breaches)
+            extras =  ("**Gadgets Destroyed:** {gadgets}\n"
+                       "**Blind Kills:** {blind}\n"
+                       "**Melee Kills:** {melee}\n"
+                       "**Hotbreaches:** {hbreach}"
+                       "".format(gadgets=player.gadgets_destroyed,
+                                 blind=player.blind_kills,
+                                 melee=player.melee_kills,
+                                 hbreach=player.rappel_breaches))
             data.add_field(name="Extras", value=extras)
-            hacker =  "**{}%**\n".format("{0:.1f}".format(player.penetration_kills/player.kills*200) if player.kills != 0 else "--.-") +\
-                      "**Penetration Kills:** {}".format(player.penetration_kills)
+            hacker_rating = ("{0:.1f}".format(
+                player.penetration_kills/player.kills*200)
+                             if player.kills != 0 else "--.-")
+            hacker =  ("**{rating}%**\n"
+                      "**Penetration Kills:** {penetration}"
+                      "".format(rating=hacker_rating,
+                                penetration=player.penetration_kills))
             data.add_field(name="Hacker Rating", value=hacker)
             await self.bot.say(embed=data)
 
@@ -330,13 +352,15 @@ class R6Stats:
                 del search_results[:5]
         result = int(result)
         if result not in range(1, len(search_results)+1):
-            if result > len(search_results): await self.bot.say("There weren't that many search results!")
+            if result > len(search_results): await self.bot.say(
+                "There weren't that many search results!")
             return
         player = search_results[result-1]
         if not player['aliases']:
             await self.bot.say("This player has no known aliases.")
             return
-        msg = 'Here are the aliases for **{username}**:\n'.format(username=player['name'])
+        msg = 'Here are the aliases for **{username}**:\n'.format(
+            username=player['name'])
         alias_str = 'Date Created | Alias\n------------ | ------------'
         self._prepare_dates(player['aliases'])
         for a in reversed(player['aliases']):
@@ -348,8 +372,9 @@ class R6Stats:
 
     async def request_player(self, username: str, platform: str):
         if self.auth is None:
-            await self.bot.say("The owner needs to set the credentials first.\n"
-                                "See: `[p]r6auth`")
+            await self.bot.say(
+                "The owner needs to set the credentials first.\n"
+                "See: `[p]r6auth`")
             return
         platform = PLATFORMS.get(platform.lower())
         if platform is None:
