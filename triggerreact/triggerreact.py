@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands
 from cogs.utils import checks
 from cogs.utils.dataIO import dataIO
+from cogs.utils.chat_formatting import pagify
 
 _LOGGER = logging.getLogger("red.triggerreact")
 FOLDER_PATH = "data/triggerreact"
@@ -92,6 +93,31 @@ class TriggerReact:
         else:
             await self.bot.say("Done - no triggers were changed.")
 
+    @trigger_set.command(name="list")
+    async def trigger_set_list(self):
+        """List all active triggers."""
+        msg = ''
+        if not (self.triggers['text_triggers'] or self.triggers['user_triggers']):
+            await self.bot.say('There are no active triggers.')
+            return
+        if self.triggers['text_triggers']:
+            msg += 'These are the active text triggers:\n'
+            for text, emoji in self.triggers['text_triggers'].items():
+                emoji = self._lookup_emoji(emoji)
+                if emoji is None:
+                    continue
+                msg += '`{text}`: {emoji}\n'.format(text=text, emoji=emoji)
+        if self.triggers['user_triggers']:
+            msg += 'These are the active user triggers:\n'
+            for user_id, emoji in self.triggers['user_triggers'].items():
+                user = discord.utils.get(self.bot.get_all_members(), id=user_id)
+                emoji = self._lookup_emoji(emoji)
+                if user is None or emoji is None:
+                    continue
+                msg += '`{user}`: {emoji}\n'.format(user=str(user), emoji=emoji)
+        for page in pagify(msg):
+            await self.bot.say(page)
+
     async def _get_trigger_emoji(self, user):
         msg = await self.bot.say("React to my message within 15 seconds with"
                                  " the new trigger's emoji!")
@@ -110,8 +136,28 @@ class TriggerReact:
             try:
                 emoji = lookup(emoji_name)
             except KeyError:
+                # Emoji not found; it must have been deleted
+                self._delete_triggers(emoji_name)
                 return
         return emoji
+
+    def _delete_triggers(self, emoji_name):
+        """For cleaning up the json when an emoji is deleted
+         and can no longer be found.
+        """
+        t_trigs_to_del = []
+        for text, emoji in self.triggers['text_triggers'].items():
+            if emoji == emoji_name:
+                t_trigs_to_del.append(text)
+        for text in t_trigs_to_del:
+            del self.triggers['text_triggers'][text]
+        u_trigs_to_del = []
+        for user, emoji in self.triggers['user_triggers'].items():
+            if emoji == emoji_name:
+                u_trigs_to_del.append(user)
+        for user in u_trigs_to_del:
+            del self.triggers['user_triggers'][user]
+        _save(self.triggers)
 
 def _load():
     return dataIO.load_json(TRIGGERS_PATH)
