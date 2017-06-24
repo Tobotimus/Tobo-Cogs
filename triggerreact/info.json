@@ -1,0 +1,10 @@
+{
+  "NAME": "TriggerReact",
+  "AUTHOR": "Tobotimus",
+  "SHORT": "Messages can trigger reactions!",
+  "HIDDEN": false,
+  "TAGS": [ "reaction", "trigger", "emoji" ],
+  "DESCRIPTION": "Make the bot react to messages containing text or from particular users.",
+  "REQUIREMENTS": [],
+  "INSTALL_MSG": "Use `[p]treact` to manage triggers."
+}
