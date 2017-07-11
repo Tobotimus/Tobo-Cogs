@@ -2,7 +2,6 @@
 import os
 import logging
 from unicodedata import name, lookup
-import asyncio
 import discord
 from discord.ext import commands
 from cogs.utils import checks
@@ -28,6 +27,9 @@ class TriggerReact:
         """Fires when the bot sees a message being sent, and
          triggers any reactions.
         """
+        if message.author == self.bot.user or message.channel.is_private:
+            return
+
         def _triggered_reactions():
             for text, emoji_list in self.triggers['text_triggers'].items():
                 if text in message.content.lower():
@@ -37,6 +39,7 @@ class TriggerReact:
                 if user == message.author.id:
                     for emoji in emoji_list:
                         yield self._lookup_emoji(emoji)
+
         for emoji in _triggered_reactions():
             try:
                 await self.bot.add_reaction(message, emoji)
@@ -54,8 +57,8 @@ class TriggerReact:
         if ctx.invoked_subcommand is None:
             await self.bot.send_cmd_help(ctx)
 
-    @trigger_set.command(name="text")
-    async def trigger_set_text(self, *,
+    @trigger_set.command(name="text", pass_context=True)
+    async def trigger_set_text(self, ctx: commands.Context, *,
                                text: str):
         """Trigger if a message contains a word or phrase.
 
@@ -63,11 +66,11 @@ class TriggerReact:
          or trailing whitespace.
         """
         text = text.strip().lower()
-        emojis = await self._get_trigger_emojis()
+        emojis = await self._get_trigger_emojis(ctx)
         if emojis:
             self.triggers["text_triggers"][text] = emojis
             _save(self.triggers)
-            emojis_str = " ".join(self._lookup_emoji(emoji) for emoji in emojis)
+            emojis_str = " ".join(str(self._lookup_emoji(emoji)) for emoji in emojis)
             await self.bot.say("Done - I will now react to messages containing `{text}` with"
                                " {emojis}.".format(text=text,
                                                    emojis=emojis_str))
@@ -79,14 +82,15 @@ class TriggerReact:
         else:
             await self.bot.say("Done - no triggers were changed.")
 
-    @trigger_set.command(name="user")
-    async def trigger_set_user(self, user: discord.User):
+    @trigger_set.command(name="user", pass_context=True)
+    async def trigger_set_user(self, ctx: commands.Context,
+                               user: discord.User):
         """Trigger if a message is from some user."""
-        emojis = await self._get_trigger_emojis()
+        emojis = await self._get_trigger_emojis(ctx)
         if emojis:
             self.triggers["user_triggers"][user.id] = emojis
             _save(self.triggers)
-            emojis_str = " ".join(self._lookup_emoji(emoji) for emoji in emojis)
+            emojis_str = " ".join(str(self._lookup_emoji(emoji)) for emoji in emojis)
             await self.bot.say("Done - I will now react to messages from `{user}` with"
                                " {emojis}.".format(user=str(user),
                                                    emojis=emojis_str))
@@ -108,7 +112,7 @@ class TriggerReact:
         if self.triggers['text_triggers']:
             msg += 'These are the active text triggers:\n'
             for text, emojis in self.triggers['text_triggers'].items():
-                emojis_str = " ".join(self._lookup_emoji(emoji) for emoji in emojis)
+                emojis_str = " ".join(str(self._lookup_emoji(emoji)) for emoji in emojis)
                 if not emojis_str:
                     continue
                 msg += '`{text}`: {emojis}\n'.format(text=text, emojis=emojis_str)
@@ -116,21 +120,23 @@ class TriggerReact:
             msg += 'These are the active user triggers:\n'
             for user_id, emojis in self.triggers['user_triggers'].items():
                 user = discord.utils.get(self.bot.get_all_members(), id=user_id)
-                emojis_str = " ".join(self._lookup_emoji(emoji) for emoji in emojis)
+                emojis_str = " ".join(str(self._lookup_emoji(emoji)) for emoji in emojis)
                 if user is None or not emojis_str:
                     continue
                 msg += '`{user}`: {emojis}\n'.format(user=str(user), emojis=emojis_str)
         for page in pagify(msg):
             await self.bot.say(page)
 
-    async def _get_trigger_emojis(self):
+    async def _get_trigger_emojis(self, ctx: commands.Context):
         msg = await self.bot.say("React to my message with the new trigger's emojis,"
-                                 " I will respond after 20 seconds.")
-        msg = await asyncio.sleep(
-            20.0, result=discord.utils.get(self.bot.messages, id=msg.id))
-        if msg and msg.reactions:
-            emojis = list(_create_emoji_list(msg.reactions))
-            return emojis
+                                 " and type `done` when finished.")
+        response = await self.bot.wait_for_message(90.0, author=ctx.message.author,
+                                                   check=lambda m: 'done' in m.content.lower())
+        if response is not None:
+            msg = discord.utils.get(self.bot.messages, id=msg.id)
+            if msg and msg.reactions:
+                emojis = list(_create_emoji_list(msg.reactions))
+                return emojis
 
     def _lookup_emoji(self, emoji_name):
         emoji = discord.utils.get(self.bot.get_all_emojis(), name=emoji_name)
