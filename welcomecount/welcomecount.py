@@ -88,20 +88,18 @@ class WelcomeCount:
         """Send the welcome message and update the last message."""
         server = member.server
         settings = self._get_settings(server)
-        if settings["CHANNEL"] is not None:
-            channel = server.get_channel(settings["CHANNEL"])
-            if channel is None:
-                return
-            today = datetime.date.today()
-            if settings.get("DAY") == str(today):
-                settings["COUNT"] += 1
-                last_message = settings.get("LAST_MESSAGE")
-                if last_message is not None:
-                    await self.bot.purge_from(channel, check=lambda m: m.id == last_message)
-            else:
-                settings["DAY"] = str(today)
-                settings["COUNT"] = 1
-                settings["LAST_MESSAGE"] = None
+        today = datetime.date.today()
+        if settings["DAY"] == str(today):
+            settings["COUNT"] += 1
+        else:
+            settings["DAY"] = str(today)
+            settings["COUNT"] = 1
+            settings["LAST_MESSAGE"] = 0
+        channel = server.get_channel(settings["CHANNEL"])
+        if channel is not None:
+            last_message = settings.get("LAST_MESSAGE")
+            if last_message is not None:
+                await self.bot.purge_from(channel, check=lambda m: m.id == last_message)
             count = settings["COUNT"]
             params = {
                 "mention": member.mention,
@@ -113,7 +111,7 @@ class WelcomeCount:
             welcome_msg = settings["MESSAGE"].format(**params)
             msg = await self.bot.send_message(channel, welcome_msg)
             settings["LAST_MESSAGE"] = msg.id
-            self._save_settings(server, settings)
+        self._save_settings(server, settings)
 
     def _get_settings(self, server: discord.Server):
         return self.settings.get(server.id, _DEFAULT_SETTINGS)
