@@ -1,0 +1,10 @@
+{
+  "NAME": "WelcomeCount",
+  "AUTHOR": "Tobotimus",
+  "SHORT": "Welcome messages with slightly different functionality.",
+  "HIDDEN": false,
+  "TAGS": [ "welcome" ],
+  "DESCRIPTION": "Welcome messages can count the number of daily users who joined. Also, each time a user joins, the previous welcome message is deleted.\n\nCredit goes to Twentysix and his crew for the idea, which is implemented privately on Red's official discord server.",
+  "REQUIREMENTS": [],
+  "INSTALL_MSG": "Use `[p]wcount` to manage settings."
+}
