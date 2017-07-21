@@ -1,7 +1,7 @@
 """Module for the TriggerReact cog."""
 import os
+from unicodedata import lookup
 import logging
-from unicodedata import name, lookup
 import discord
 from discord.ext import commands
 from cogs.utils import checks
@@ -140,40 +140,15 @@ class TriggerReact:
 
     def _lookup_emoji(self, emoji_name):
         emoji = discord.utils.get(self.bot.get_all_emojis(), name=emoji_name)
-        if emoji is None:
-            try:
-                emoji = lookup(emoji_name)
-            except KeyError:
-                # Emoji not found; it must have been deleted
-                self._delete_triggers(emoji_name)
-                return
-        return emoji
-
-    def _delete_triggers(self, emoji_name):
-        """For cleaning up the json when an emoji is deleted
-         and can no longer be found.
-        """
-        t_trigs_to_del = []
-        for text, emojis in self.triggers['text_triggers'].items():
-            if emoji_name in emojis:
-                t_trigs_to_del.append(text)
-        for text in t_trigs_to_del:
-            del self.triggers['text_triggers'][text]
-        u_trigs_to_del = []
-        for user, emojis in self.triggers['user_triggers'].items():
-            if emoji_name in emojis:
-                u_trigs_to_del.append(user)
-        for user in u_trigs_to_del:
-            del self.triggers['user_triggers'][user]
-        _save(self.triggers)
+        if emoji is not None:
+            return emoji
+        return emoji_name
 
 def _create_emoji_list(reactions):
     for reaction in reactions:
         emoji = reaction.emoji
         if isinstance(emoji, discord.Emoji):
             emoji = emoji.name
-        else:
-            emoji = name(emoji)
         yield emoji
 
 def _load():
@@ -191,6 +166,27 @@ def _check_files():
     if not dataIO.is_valid_json(TRIGGERS_PATH):
         _LOGGER.info("Creating json: " + TRIGGERS_PATH)
         dataIO.save_json(TRIGGERS_PATH, DEFAULT_SETTINGS)
+    else: # Backwards compatibility check
+        triggers = dataIO.load_json(TRIGGERS_PATH)
+        for text, emoji_list in triggers['text_triggers'].items():
+            for idx, emoji in enumerate(emoji_list):
+                try:
+                    emoji = lookup(emoji)
+                except KeyError:
+                    pass
+                else:
+                    emoji_list[idx] = emoji
+            triggers['text_triggers'][text] = emoji_list
+        for user, emoji_list in triggers['user_triggers'].items():
+            for idx, emoji in enumerate(emoji_list):
+                try:
+                    emoji = lookup(emoji)
+                except KeyError:
+                    pass
+                else:
+                    emoji_list[idx] = emoji
+            triggers['user_triggers'][user] = emoji_list
+        dataIO.save_json(TRIGGERS_PATH, triggers)
 
 def setup(bot: commands.Bot):
     """Load this cog."""
