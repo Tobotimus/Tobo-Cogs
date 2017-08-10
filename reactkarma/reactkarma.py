@@ -137,7 +137,7 @@ class ReactKarma:
     @commands.command(name="resetkarma")
     @checks.is_owner()
     async def reset_karma(self, ctx: commands.Context, user: discord.Member):
-        """"Resets a user's karma."""
+        """Resets a user's karma."""
         LOG.debug("Resetting %s's karma", str(user))
         await self.conf.user(user).karma.set(0)
         await ctx.send("{}'s karma has been reset to 0.".format(user.display_name))
@@ -167,6 +167,7 @@ class ReactKarma:
 
     async def _add_karma(self, user: discord.User, amount: int):
         settings = self.conf.user(user)
+        LOG.debug("%s has been given %d karma.", user, amount)
         await settings.karma.set(settings.karma() + amount)
 
     async def _set_reaction(self, guild: discord.Guild, reaction: discord.Reaction, *,
