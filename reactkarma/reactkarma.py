@@ -6,11 +6,9 @@ from discord.ext import commands
 from core import checks, Config
 from core.bot import Red
 from core.utils.chat_formatting import pagify, box
+from . import LOG
 
 UNIQUE_ID = 0x9c02dcc7
-_DOWNVOTE = "downvote"
-_UPVOTE = "upvote"
-
 
 class ReactKarma:
     """Keep track of karma for all users in the bot's scope.
@@ -38,7 +36,8 @@ class ReactKarma:
         reply = "The upvote emoji in this server is {}".format(emoji)
         if emoji is None:
             reply = ("The upvote emoji in this server is not set."
-                     " Use !setupvote to do so (requires `manage emojis` permission).")
+                     " Use `{0}setupvote` to do so (requires `manage emojis` permission)."
+                     "".format(ctx.prefix))
         await ctx.send(reply)
 
     @commands.command()
@@ -49,7 +48,8 @@ class ReactKarma:
         reply = "The downvote emoji in this server is {}".format(emoji)
         if emoji is None:
             reply = ("The downvote emoji in this server is not set. Admins use"
-                     " !setdownvote to do so (requires `manage emojis` permission).")
+                     " `{0}setdownvote` to do so (requires `manage emojis` permission)."
+                     "".format(ctx.prefix))
         await ctx.send(reply)
 
     @commands.command()
@@ -105,7 +105,7 @@ class ReactKarma:
         try:
             reaction, _ = await self.bot.wait_for(
                 "reaction_add",
-                check=lambda r, u: u == ctx.author and r.message == msg,
+                check=lambda r, u: u == ctx.author and r.message.id == msg.id,
                 timeout=30.0)
         except asyncio.TimeoutError:
             await ctx.send("Setting the upvote emoji was cancelled.")
@@ -125,7 +125,7 @@ class ReactKarma:
         try:
             reaction, _ = await self.bot.wait_for(
                 "reaction_add",
-                check=lambda r, u: u == ctx.author and r.message == msg,
+                check=lambda r, u: u == ctx.author and r.message.id == msg.id,
                 timeout=30.0)
         except asyncio.TimeoutError:
             await ctx.send("Setting the downvote emoji was cancelled.")
@@ -136,11 +136,9 @@ class ReactKarma:
 
     @commands.command(name="resetkarma")
     @checks.is_owner()
-    async def reset_karma(self, ctx: commands.Context,
-                          user: discord.Member=None):
-        """"Resets a user's karma.
-
-        Resets karma of all users if [user] is left blank."""
+    async def reset_karma(self, ctx: commands.Context, user: discord.Member):
+        """"Resets a user's karma."""
+        LOG.debug("Resetting %s's karma", str(user))
         await self.conf.user(user).karma.set(0)
         await ctx.send("{}'s karma has been reset to 0.".format(user.display_name))
 
@@ -150,7 +148,7 @@ class ReactKarma:
         Ignores Private Channels and users reacting to their own message."""
         await self._check_reaction(reaction, user, added=True)
 
-    async def reaction_removed(self, reaction: discord.Reaction, user: discord.User):
+    async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.User):
         """Fires when the bot sees a reaction being removed, and updates karma accordingly.
 
         Ignores Private Channels and users reacting to their own message."""
@@ -163,19 +161,24 @@ class ReactKarma:
         if author == user or isinstance(channel, discord.abc.PrivateChannel):
             return
         emoji = str(reaction.emoji)
-        if emoji == self._get_emoji(guild, upvote=True):
-            await self._add_karma(author.id, -1 if added else 1)
-        elif emoji == self._get_emoji(guild, upvote=False):
-            await self._add_karma(author.id, 1 if added else -1)
+        upvote = self._is_upvote(guild, emoji)
+        if upvote is not None:
+            await self._add_karma(author, 1 if upvote == added else -1)
+
+    async def _add_karma(self, user: discord.User, amount: int):
+        settings = self.conf.user(user)
+        await settings.karma.set(settings.karma() + amount)
 
     async def _set_reaction(self, guild: discord.Guild, reaction: discord.Reaction, *,
                             upvote: bool):
-        emoji = reaction.emoji
+        emoji = str(reaction.emoji)
         settings = self.conf.guild(guild)
+        LOG.debug("Setting %s emoji in %s to %s",
+                  "upvote" if upvote else "downvote", guild, emoji)
         if upvote:
-            await settings.upvote.set(str(emoji))
+            await settings.upvote.set(emoji)
         else:
-            await settings.downvote.set(str(emoji))
+            await settings.downvote.set(emoji)
 
     def _get_emoji(self, guild: discord.Guild, *, upvote: bool):
         if upvote:
@@ -184,9 +187,16 @@ class ReactKarma:
             emoji = self.conf.guild(guild).downvote()
         return emoji
 
-    async def _add_karma(self, user: discord.User, amount: int):
-        settings = self.conf.user(user)
-        await settings.karma.set(settings.karma() + amount)
+    def _is_upvote(self, guild: discord.Guild, emoji: str):
+        """Returns True if the emoji is the upvote emoji, False
+         if it is the downvote emoji, and None otherwise.
+        """
+        upvote = self._get_emoji(guild, upvote=True)
+        downvote = self._get_emoji(guild, upvote=False)
+        if emoji == upvote:
+            return True
+        elif emoji == downvote:
+            return False
 
     def _get_all_members(self):
         """Get a list of members which have karma.
@@ -194,7 +204,9 @@ class ReactKarma:
         Returns:
           A list of named tuples with values for `name`, `id`, `karma`"""
         member_info = namedtuple("Member", "id name karma")
+        ret = []
         for member in self.bot.get_all_members():
-            if self.conf.user(member).karma() != 0:
-                yield member_info(id=member.id, name=str(member),
-                                  karma=self.conf.user(member).karma())
+            if self.conf.user(member).karma() != 0 and not any(member.id == m.id for m in ret):
+                ret.append(member_info(id=member.id, name=str(member),
+                                       karma=self.conf.user(member).karma()))
+        return ret
