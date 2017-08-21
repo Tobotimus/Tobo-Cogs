@@ -1,8 +1,7 @@
 """Module for R6Pugs cog."""
 import discord
 from discord.ext import commands
-from core import Config, checks
-from core.bot import Red
+from core import Config
 from .log import LOG
 from .pug import Pug
 from .errors import Forbidden
@@ -43,7 +42,7 @@ class R6Pugs:
         original_channel = ctx.channel
         ctx.channel = channel
         LOG.debug("Channel is %r", channel)
-        pug = Pug(ctx, self.conf, temp_channel=temp_channel)
+        pug = Pug(ctx, temp_channel=temp_channel)
         self.pugs.append(pug)
         pug.add_member(ctx.author)
         await original_channel.send("Pug started in {0.mention}.".format(channel))
@@ -128,10 +127,10 @@ class R6Pugs:
         LOG.debug("PuG started; #%s in %s", ctx.channel, ctx.guild)
         if pug not in self.pugs:
             self.pugs.append(pug)
-        await self.conf.channel(ctx.channel).pug_running.set(True)
         await ctx.send("A PuG has been started here by {0.author.mention}, use"
                        " `{0.prefix}pug join #{0.channel.name}` to join it."
                        "".format(ctx))
+        await pug.run_initial_setup()
 
     async def pug_ended(self, pug: Pug):
         """Fires when a PuG is ended, and removes it from this cog's PuGs."""
@@ -139,7 +138,6 @@ class R6Pugs:
         LOG.debug("PuG ended; #%s in %s", ctx.channel, ctx.guild)
         if pug in self.pugs:
             self.pugs.remove(pug)
-        await self.conf.channel(ctx.channel).pug_running.set(False)
         msg = "The PuG here has been ended."
         if pug.temp_channel:
             msg += ("\nSince this channel was a temporary channel created specifically for"
@@ -148,3 +146,13 @@ class R6Pugs:
             LOG.debug("Scheduling deletion of channel #%s", ctx.channel)
             ctx.bot.loop.call_later(_DELETE_CHANNEL_AFTER, ctx.bot.loop.create_task, coro)
         await ctx.send(msg)
+
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
+        """Fires when a text channel is deleted and ends any PuGs which it may
+         have been running in it.
+        """
+        if not isinstance(channel, discord.TextChannel):
+            return
+        pug = self.get_pug(channel)
+        if pug is not None and pug in self.pugs:
+            self.pugs.remove(pug)
