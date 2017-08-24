@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands
 from core.utils.chat_formatting import box
 from .errors import MenuNotSent
-from .log import LOG
+ # from .log import LOG
 
 class _ReactionMenu:
 
@@ -144,7 +144,7 @@ class SingleSelectionMenu(_OptionMenu):
         if len(self.options) < 2:
             raise ValueError("Must have at least 2 options for a selection menu")
         (emojis, embed) = self.get_embed()
-        embed.set_footer(text=("Only **{0.display_name}** may select {1}"
+        embed.set_footer(text=("Only {0.display_name} may select {1}"
                                "".format(self.selector, self.option_name)))
         self.message = await self.channel.send(embed=embed)
         for emoji in emojis:
@@ -156,10 +156,57 @@ class SingleSelectionMenu(_OptionMenu):
         except asyncio.TimeoutError:
             return
         else:
-            LOG.debug("Got reaction")
             reaction = response[0]
             selection = self.options[emojis.index(reaction.emoji)]
             await self.finish(selection)
+        return selection
+
+    async def finish(self, selection: str):
+        """Edit the result into the message."""
+        await self.message.clear_reactions()
+        await self.message.edit(content=("**{}** has been selected as {}."
+                                         "".format(selection, self.option_name)),
+                                embed=None)
+
+class PollMenu(_OptionMenu):
+    """A poll menu, where a group of users can vote on some
+     list of options.
+    """
+
+    def __init__(self, bot: commands.Bot, channel: discord.TextChannel,
+                 voters: List[discord.Member], options: List[str], **attrs):
+        self.voters = voters
+        super().__init__(bot, channel, options, **attrs)
+
+    async def run(self):
+        """Send the poll menu and wait for the users to vote."""
+        if len(self.options) < 2 or len(self.voters) < 2:
+            raise ValueError("Must have at least 2 options/voters for a poll menu")
+        (emojis, embed) = self.get_embed()
+        self.message = await self.channel.send(embed=embed)
+        for emoji in emojis:
+            await self.message.add_reaction(emoji)
+        def _check(reaction, _):
+            reacted = []
+            for reac in reaction.message.reactions:
+                async for member in reac.users:
+                    if member not in reacted and member in self.voters:
+                        reacted.append(member)
+                    if all(m in reacted for m in self.voters):
+                        return True
+            return False
+        try:
+            await self.wait_for_reaction(users=[self.voters],
+                                         emojis=emojis,
+                                         check=_check,
+                                         timeout=self.timeout)
+        except asyncio.TimeoutError:
+            pass
+        max_count = max(self.message.reactions, key=lambda r: r.count).count
+        top_reactions = [r for r in self.message.reactions
+                         if r.emoji in emojis and r.count == max_count]
+        selection = random.choice(top_reactions)
+        await self.finish(selection)
         return selection
 
     async def finish(self, selection: str):
