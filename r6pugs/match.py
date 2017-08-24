@@ -12,6 +12,7 @@ class PugMatch:
         self.teams = teams
         self.map = map_
         self.scores = ([], [])
+        self.final_score = None
         ctx.bot.dispatch("pug_match_start", self)
 
     async def send_summary(self):
@@ -47,6 +48,7 @@ class PugMatch:
             score = score[::-1]
         self.scores[team_idx].append(score)
         if self._scores_settled():
+            self.final_score = self.get_score()
             self.end_match()
 
     def _scores_settled(self):

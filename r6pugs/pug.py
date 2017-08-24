@@ -3,7 +3,7 @@ import random
 from typing import Tuple, List
 import discord
 from discord.ext import commands
-from .reactionmenus import (ConfirmationMenu, SingleSelectionMenu,
+from .reactionmenus import (ConfirmationMenu, SingleSelectionMenu, PollMenu,
                             TurnBasedVetoMenu, TurnBasedSelectionMenu)
 from .match import PugMatch
 
@@ -47,7 +47,7 @@ class Pug:
     def remove_member(self, member: discord.Member):
         """Remove a member from this PuG."""
         if member not in self.queue:
-            raise ValueError("Member {0} not in this PuG.".format(str(member)))
+            return False
         self.queue.remove(member)
         return True
 
@@ -164,20 +164,25 @@ class Pug:
 
     async def run_map_veto(self, teams: Tuple[List[discord.Member]]):
         """Run a map veto with this PuG's map pool."""
-        captains = []
-        for team in teams:
-            captains.append(team[0])
+        captains = [team[0] for team in teams]
         ctx = self.ctx
         menu = TurnBasedVetoMenu(ctx.channel, ctx.bot, captains,
                                  self.settings["maps"],
-                                 title="Captains veto maps",
+                                 title="Captains Veto Maps",
                                  option_name="a map",
                                  timeout=60.0)
         return await menu.run()
 
-    async def run_map_vote(self):
+    async def run_map_vote(self, teams: Tuple[List[discord.Member]]):
         """Run a map vote with this PuG's map pool."""
-        raise NotImplementedError()
+        players = [p for p in team for team in teams]
+        ctx = self.ctx
+        menu = PollMenu(ctx.channel, ctx.bot, players,
+                        self.settings["maps"],
+                        title="Vote For Maps",
+                        option_name="a map",
+                        timeout=60.0)
+        return await menu.run()
 
     def end(self):
         """End this PuG."""
