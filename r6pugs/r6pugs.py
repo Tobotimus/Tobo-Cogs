@@ -9,7 +9,7 @@ from .errors import Forbidden
 
 UNIQUE_ID = 0x315e5521
 
-_DELETE_CHANNEL_AFTER = 10 # seconds
+_DELETE_CHANNEL_AFTER = 300 # seconds
 
 class R6Pugs:
     """Cog to run PuGs for Rainbow Six."""
@@ -18,6 +18,7 @@ class R6Pugs:
         self.pugs = []
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_channel(pug_running=False)
+        self.conf.register_member(wins=0, losses=0)
 
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
@@ -174,13 +175,19 @@ class R6Pugs:
         await ctx.send("The match has ended.")
         await match.send_summary()
         pug = self.get_pug(ctx.channel)
+        losing_score = min(score for score in match.final_score)
+        losing_team_idx = match.final_score.index(losing_score)
+        losing_team = match.teams[losing_team_idx]
+        winning_team = match.teams[int(not losing_team_idx)]
+        for winner, loser in zip(winning_team, losing_team):
+            wins = await self.conf.member(winner).wins()
+            await self.conf.member(winner).wins.set(wins + 1)
+            losses = await self.conf.member(loser).losses()
+            await self.conf.member(loser).losses.set(losses + 1)
         if pug.settings["losers_leave"] and match.final_score is not None:
             await ctx.send("Losers are being removed from the PuG, they may use"
                            " `{}pug join #{}` to rejoin the queue."
                            "".format(ctx.prefix, ctx.channel.name))
-            losing_score = min(score for score in match.final_score)
-            losing_team_idx = match.final_score.index(losing_score)
-            losing_team = match.teams[losing_team_idx]
             for player in losing_team:
                 pug.remove_member(player)
             if len(pug.queue) > 10:
