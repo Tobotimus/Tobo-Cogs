@@ -143,7 +143,7 @@ class Pug:
             players.remove(cap)
         options = {u.display_name: u for u in players}
         ctx = self.ctx
-        menu = TurnBasedSelectionMenu(ctx.bot, ctx.channel, captains,
+        menu = TurnBasedSelectionMenu(ctx.channel, ctx.bot, captains,
                                       list(options.keys()),
                                       title="Captains pick teams",
                                       option_name="a player",

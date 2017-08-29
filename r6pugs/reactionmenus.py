@@ -3,11 +3,12 @@ import random
 import asyncio
 from datetime import datetime
 from typing import Tuple, List, Union
+from collections import Counter
 import discord
 from discord.ext import commands
 from core.utils.chat_formatting import box
 from .errors import MenuNotSent
- # from .log import LOG
+# from .log import LOG
 
 class _ReactionMenu:
 
@@ -65,24 +66,28 @@ class ConfirmationMenu(_ReactionMenu):
         iterations = len(members)
         started = datetime.now()
         time_passed = 0
-        for _ in range(len(iterations)):
+        for _ in range(iterations):
             try:
                 response = await self.wait_for_reaction(users=members,
                                                         emojis=[self.TICK],
                                                         timeout=timeout-time_passed)
             except asyncio.TimeoutError:
+                self.message = await self.channel.get_message(self.message.id)
                 reaction = discord.utils.get(self.message.reactions, emoji=self.TICK)
-                reacted = await reaction.users.flatten()
-                if all(member in reacted for member in members):
-                    return []
-                return list(filter(lambda m: m not in reacted, members))
+                if reaction is not None:
+                    reacted = await reaction.users().flatten()
+                    if all(member in reacted for member in members):
+                        return []
+                    return list(filter(lambda m: m not in reacted, members))
+                else:
+                    return members
             else:
                 member = response[1]
                 members.remove(member)
                 await self._confirm(member)
                 if not members:
                     return []
-                time_passed = (datetime.now() - started).seconds()
+                time_passed = (datetime.now() - started).seconds
         return []
 
     async def _confirm(self, member: discord.Member):
@@ -95,7 +100,7 @@ class ConfirmationMenu(_ReactionMenu):
             if member.display_name in line:
                 lines[idx] = "{} {}".format(self.TICK, member.display_name)
                 break
-        embed.set_field_at(0, value="\n".join(lines))
+        embed.set_field_at(0, name="Options", value="\n".join(lines))
         await self.message.edit(embed=embed)
 
 class _OptionMenu(_ReactionMenu):
@@ -111,25 +116,26 @@ class _OptionMenu(_ReactionMenu):
         self.title = attrs.pop("title", "Option Menu")
         self.option_name = attrs.pop("option_name", "an option")
         self.timeout = attrs.pop("timeout", 30.0)
+        try:
+            self.emojis = self.ALPHABET_EMOJIS[:len(self.options)]
+        except IndexError:
+            raise ValueError("Must not be more than {} options.".format(len(self.ALPHABET_EMOJIS)))
         super().__init__(bot, channel)
 
     def get_embed(self):
-        """Get the embed for this option menu.
-
-        Returns a tuple in the form `(emojis, embed)`, emojis being a list
-         of emojis used in the option menu.
-        """
+        """Get the embed for this option menu."""
         embed = discord.Embed(title=self.title,
                               description=("Click the corresponding reaction to select {}."
                                            "".format(self.option_name)),
                               colour=random_colour())
-        try:
-            emojis = self.ALPHABET_EMOJIS[:len(self.options)]
-        except IndexError:
-            raise ValueError("Must not be more than {} options.".format(len(self.ALPHABET_EMOJIS)))
-        lines = ("{} {}".format(emoji, option) for emoji, option in zip(emojis, self.options))
+        lines = ("{} {}".format(emoji, option) for emoji, option in zip(self.emojis, self.options))
         embed.add_field(name="Options", value="\n".join(lines))
-        return (emojis, embed)
+        return embed
+
+    async def setup_reactions(self):
+        """Add the reactions to this menu."""
+        for emoji in self.emojis:
+            await self.message.add_reaction(emoji)
 
 class SingleSelectionMenu(_OptionMenu):
     """Selection menu where a user gets to pick one option."""
@@ -143,21 +149,20 @@ class SingleSelectionMenu(_OptionMenu):
         """Send the selection menu and wait for the user to select an option."""
         if len(self.options) < 2:
             raise ValueError("Must have at least 2 options for a selection menu")
-        (emojis, embed) = self.get_embed()
+        embed = self.get_embed()
         embed.set_footer(text=("Only {0.display_name} may select {1}"
                                "".format(self.selector, self.option_name)))
         self.message = await self.channel.send(embed=embed)
-        for emoji in emojis:
-            await self.message.add_reaction(emoji)
+        await self.setup_reactions()
         try:
             response = await self.wait_for_reaction(users=[self.selector],
-                                                    emojis=emojis,
+                                                    emojis=self.emojis,
                                                     timeout=self.timeout)
         except asyncio.TimeoutError:
             return
         else:
             reaction = response[0]
-            selection = self.options[emojis.index(reaction.emoji)]
+            selection = self.options[self.emojis.index(reaction.emoji)]
             await self.finish(selection)
         return selection
 
@@ -176,45 +181,48 @@ class PollMenu(_OptionMenu):
     def __init__(self, bot: commands.Bot, channel: discord.TextChannel,
                  voters: List[discord.Member], options: List[str], **attrs):
         self.voters = voters
+        self.votes = Counter()
         super().__init__(bot, channel, options, **attrs)
 
     async def run(self):
         """Send the poll menu and wait for the users to vote."""
         if len(self.options) < 2 or len(self.voters) < 2:
             raise ValueError("Must have at least 2 options/voters for a poll menu")
-        (emojis, embed) = self.get_embed()
+        embed = self.get_embed()
         self.message = await self.channel.send(embed=embed)
-        for emoji in emojis:
-            await self.message.add_reaction(emoji)
-        def _check(reaction, _):
-            reacted = []
-            for reac in reaction.message.reactions:
-                async for member in reac.users:
-                    if member not in reacted and member in self.voters:
-                        reacted.append(member)
-                    if all(m in reacted for m in self.voters):
-                        return True
-            return False
-        try:
-            await self.wait_for_reaction(users=[self.voters],
-                                         emojis=emojis,
-                                         check=_check,
-                                         timeout=self.timeout)
-        except asyncio.TimeoutError:
-            pass
-        max_count = max(self.message.reactions, key=lambda r: r.count).count
-        top_reactions = [r for r in self.message.reactions
-                         if r.emoji in emojis and r.count == max_count]
-        selection = random.choice(top_reactions)
-        await self.finish(selection)
-        return selection
+        await self.setup_reactions()
+        started = datetime.now()
+        time_passed = 0
+        for _ in range(len(self.voters)):
+            try:
+                response = await self.wait_for_reaction(users=self.voters,
+                                                        emojis=self.emojis,
+                                                        timeout=self.timeout-time_passed)
+            except asyncio.TimeoutError:
+                break
+            else:
+                await self.vote(*response)
+                time_passed = (datetime.now() - started).seconds
+        return await self.finish()
 
-    async def finish(self, selection: str):
+    async def vote(self, reaction: discord.Reaction, voter: discord.Member):
+        """A user votes with a reaction."""
+        if voter in self.voters:
+            self.voters.remove(voter)
+        vote = self.options[self.emojis.index(reaction.emoji)]
+        self.votes[vote] += 1
+
+    async def finish(self):
         """Edit the result into the message."""
         await self.message.clear_reactions()
-        await self.message.edit(content=("**{}** has been selected as {}."
+        if self.votes:
+            selection = self.votes.most_common(1)[0][0]
+        else:
+            selection = random.choice(self.options)
+        await self.message.edit(content=("**{}** has been voted as {}."
                                          "".format(selection, self.option_name)),
                                 embed=None)
+        return selection
 
 class _TurnBasedMenu(_OptionMenu):
 
@@ -224,9 +232,10 @@ class _TurnBasedMenu(_OptionMenu):
         self.selectors = selectors
         self.selectors_name = attrs.pop("selectors_name", "selectors")
         super().__init__(bot, channel, options, **attrs)
+        self.remainder = dict(zip(self.emojis, self.options))
 
-    async def take_turns(self, iterations: int, emojis: List[str], callback, *,
-                         double_turns: bool = False) -> List[str]:
+    async def take_turns(self, iterations: int, callback, *,
+                         double_turns: bool = False):
         """Take turns picking options and then doing whatever the `callback` is."""
         cur_turn = 0
         turns_left = 1
@@ -234,16 +243,18 @@ class _TurnBasedMenu(_OptionMenu):
         for _ in range(iterations):
             turns_left -= 1
             selector = self.selectors[cur_turn]
-            if len(self.options) == 1:
-                await callback(self.options.pop(), selector, emojis.pop())
+            if len(self.remainder) == 1:
+                await callback(next(iter(self.remainder.keys())), selector)
                 break
             await self._update_footer(selector)
-            response = self._get_response(selector, emojis)
+            response = await self._get_response(selector, list(self.remainder.keys()))
             await callback(*response)
             if turns_left == 0:
                 cur_turn = int(not cur_turn)
                 if double_turns:
                     turns_left = 2
+                else:
+                    turns_left = 1
 
     async def _update_footer(self, selector: discord.Member):
         embed = self.message.embeds[0]
@@ -258,34 +269,32 @@ class _TurnBasedMenu(_OptionMenu):
                                                     emojis=emojis,
                                                     timeout=self.timeout)
         except asyncio.TimeoutError:
-            selection = random.choice(self.options)
-            idx = self.options.index(selection)
-            emoji = emojis.pop(idx)
+            emoji = random.choice(emojis)
         else:
             reaction = response[0]
-            idx = emojis.index(reaction.emoji)
-            selection = self.options[idx]
-            emoji = emojis.pop(idx)
-        return (selection, selector, emoji)
+            emoji = reaction.emoji
+        return (emoji, selector)
 
     async def _update_option(self, option: str, selector: discord.Member, *,
                              old_emoji: str = None,
                              new_emoji: str = None,
                              action: str = None):
-        if old_emoji is not None:
-            reaction = discord.utils.get(self.message.reactions, emoji=old_emoji)
-            if reaction is not None:
-                async for member in reaction.members:
-                    await self.message.remove_reaction(old_emoji, member)
         embed = self.message.embeds[0]
         options_str = embed.fields[0].value
         lines = options_str.split('\n')
         idx = self.options.index(option)
-        selector = str(selector) if selector is None else selector.display_name
+        selector = "me" if selector is None else selector.display_name
         lines[idx] = ("{0} ~~{1}~~ *{2}ed by {3}*"
                       "".format(new_emoji, option, action, selector))
-        embed.set_field_at(0, value="\n".join(lines))
+        embed.set_field_at(0, name="Options", value="\n".join(lines))
         await self.message.edit(embed=embed)
+        # Possibly clear the reaction
+        if old_emoji is not None:
+            self.message = await self.channel.get_message(self.message.id)
+            reaction = next((r for r in self.message.reactions if r.emoji == old_emoji), None)
+            if reaction is not None:
+                async for member in reaction.users():
+                    await self.message.remove_reaction(old_emoji, member)
 
 class TurnBasedVetoMenu(_TurnBasedMenu):
     """A veto menu where two users take turns vetoing through a list
@@ -299,7 +308,7 @@ class TurnBasedVetoMenu(_TurnBasedMenu):
                  **attrs):
         self.n_picks = attrs.pop("n_picks", 1)
         self.picks = []
-        super().__init__(bot, channel, options, **attrs)
+        super().__init__(bot, channel, selectors, options, **attrs)
 
     async def run(self):
         """Send the veto menu and let the selectors take turns vetoing."""
@@ -307,42 +316,43 @@ class TurnBasedVetoMenu(_TurnBasedMenu):
             raise ValueError("Must have at least 3 options for a turn-based menu")
         if self.n_picks > len(self.options) + 1:
             raise ValueError("Must have at least 2 more options than picks.")
-        (emojis, embed) = self.get_embed()
+        embed = self.get_embed()
         self.message = await self.channel.send(
             content=("{0[0].mention} and {0[1].mention} are the {1}."
                      "".format(self.selectors, self.selectors_name)),
             embed=embed)
-        for emoji in emojis:
-            await self.message.add_reaction(emoji)
-        emojis = await self._run_veto(emojis)
-        await self._run_picks(emojis)
+        await self.setup_reactions()
+        await self._run_veto()
+        await self._run_picks()
         picks_str = box('\n'.join(self.picks), lang="diff")
         await self.message.edit(
             content=("The {} has been completed, these are the remaining {}s:"
                      "{}".format(self.title, self.option_name, picks_str)),
             embed=None)
+        await self.message.clear_reactions()
         return self.picks
 
-    async def _run_veto(self, emojis: List[str]) -> List[str]:
-        iterations = len(emojis) - self.n_picks - (len(emojis) % 2)
-        await self.take_turns(iterations, emojis, self.veto)
-        return emojis
+    async def _run_veto(self) -> List[str]:
+        iterations = len(self.emojis) - self.n_picks
+        iterations -= iterations % 2
+        await self.take_turns(iterations, self.veto)
 
-    async def _run_picks(self, emojis: List[str]):
-        iterations = self.n_picks - (self.n_picks % 2)
-        await self.take_turns(iterations, emojis, self.pick)
-        if self.n_picks > 0 and self.options:
-            await self.pick(self.options.pop(), None, emojis.pop())
+    async def _run_picks(self):
+        iterations = self.n_picks
+        await self.take_turns(iterations, self.pick)
+        if self.n_picks > 0 and self.remainder:
+            await self.pick(next(iter(self.remainder.keys())))
 
-    async def veto(self, option: str, selector: discord.Member, emoji: str = None):
-        """Veto an option from this menu."""
+    async def veto(self, emoji: str, selector: discord.Member=None):
+        """Veto an option from this menu by its corresponding emoji."""
+        option = self.remainder.pop(emoji)
         await self._update_option(option, selector,
                                   old_emoji=emoji, new_emoji=self.VETOED,
                                   action="veto")
-        self.options.remove(option)
 
-    async def pick(self, option: str, selector: discord.Member, emoji: str = None):
-        """Pick an option from this menu."""
+    async def pick(self, emoji: str, selector: discord.Member=None):
+        """Pick an option from this menu by its corresponding emoji."""
+        option = self.remainder.pop(emoji)
         await self._update_option(option, selector,
                                   old_emoji=emoji, new_emoji=self.PICKED,
                                   action="pick")
@@ -365,42 +375,41 @@ class TurnBasedSelectionMenu(_TurnBasedMenu):
         if len(options) % 2 != 0:
             raise ValueError("Must be even number of options.")
         self.selections = ([], [])
-        super().__init__(bot, channel, options, **attrs)
+        super().__init__(bot, channel, selectors, options, **attrs)
 
     async def run(self):
         """Send the selections menu and let the selectors take turns picking."""
         if len(self.options) < 2:
             raise ValueError("Must have at least 3 options for a turn-based menu")
-        (emojis, embed) = self.get_embed()
+        embed = self.get_embed()
         self.message = await self.channel.send(
             content=("{0[0].mention} and {0[1].mention} are the {1}."
                      "".format(self.selectors, self.selectors_name)),
             embed=embed)
-        for emoji in emojis:
-            await self.message.add_reaction(emoji)
-        await self._run_selections(emojis)
+        await self.setup_reactions()
+        await self._run_selections()
         picks_strs = [box('\n'.join(s), lang="diff") for s in self.selections]
         embed = discord.Embed(title=self.title,
                               description="Complete",
                               colour=embed.colour)
-        embed.add_field(name="Blue Team", value=picks_strs[0])
-        embed.add_field(name="Orange Team", value=picks_strs[1])
+        for idx, selector in enumerate(self.selectors):
+            embed.add_field(name="{0.display_name}'s Picks".format(selector), value=picks_strs[idx])
         await self.message.edit(embed=embed)
         return self.selections
 
-    async def _run_selections(self, emojis: List[str]):
+    async def _run_selections(self):
         iterations = len(self.options)
-        await self.take_turns(iterations, emojis, self.select, double_turns=True)
+        await self.take_turns(iterations, self.select, double_turns=True)
 
-    async def select(self, option: str, selector: discord.Member, emoji: str = None):
-        """Select an option from this menu."""
+    async def select(self, emoji: str, selector: discord.Member):
+        """Select an option from this menu by its emoji."""
         new_emoji = self.SELECTED[self.selectors.index(selector)]
+        option = self.remainder.pop(emoji)
         await self._update_option(option, selector,
                                   old_emoji=emoji, new_emoji=new_emoji,
                                   action="pick")
         idx = self.selectors.index(selector)
         self.selections[idx].append(option)
-        self.options.remove(option)
 
 def random_colour() -> discord.Colour:
     """Get a random discord colour."""
