@@ -1,4 +1,5 @@
 """Module for PugStats cog."""
+import discord
 from core import Config
 from .r6pugs import UNIQUE_ID
 from .match import PugMatch
@@ -13,6 +14,7 @@ class PugStats:
         self.conf.register_member(wins=0, losses=0, map_stats={})
 
     async def on_pug_match_end(self, match: PugMatch):
+        """Fires when a pug match ends and submits the stats for each player."""
         losing_score = min(score for score in match.final_score)
         losing_team_idx = match.final_score.index(losing_score)
         losing_team = match.teams[losing_team_idx]
