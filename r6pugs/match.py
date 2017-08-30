@@ -61,3 +61,7 @@ class PugMatch:
     def end_match(self):
         """End this PuG match."""
         self.ctx.bot.dispatch("pug_match_end", self)
+
+    def has_member(self, member: discord.Member):
+        """Check if a member is a part of one of this match's teams."""
+        return any(member in (p1, p2) for p1, p2 in zip(*self.teams))
