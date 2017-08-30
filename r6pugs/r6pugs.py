@@ -17,8 +17,6 @@ class R6Pugs:
     def __init__(self):
         self.pugs = []
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
-        self.conf.register_channel(pug_running=False)
-        self.conf.register_member(wins=0, losses=0, map_stats={})
 
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
@@ -97,6 +95,7 @@ class R6Pugs:
         else:
             await ctx.send("You have successfully left the PUG in {0.mention}.".format(channel))
 
+    @pug.command(name="submit")
     async def pug_submit(self, ctx: commands.Context, your_score: int, their_score: int):
         """Submit scores for a PUG match."""
         pug = self.get_pug(ctx.channel)
@@ -115,6 +114,24 @@ class R6Pugs:
             return
         match.submit_score((your_score, their_score), ctx.author)
         await ctx.send("Score has been submitted.")
+
+    @commands.group()
+    async def pugaddons(self, ctx: commands.Context):
+        """Manage addons for this package."""
+        if not ctx.invoked_subcommand:
+            await ctx.bot.send_cmd_help(ctx)
+
+    @pugaddons.command(name="stats")
+    async def addon_stats(self, ctx: commands.Context):
+        """Enable / disable the stats addon."""
+        from .pugstats import PugStats
+        cog = ctx.bot.get_cog(PugStats.__name__)
+        if cog is None:
+            ctx.bot.add_cog(PugStats())
+            await ctx.send("The stats addon has been enabled.")
+        else:
+            ctx.bot.remove_cog(PugStats.__name__)
+            await ctx.send("The stats addon has been disabled.")
 
     def get_pug(self, channel: discord.TextChannel):
         """Get the PUG at the given channel.
@@ -141,7 +158,7 @@ class R6Pugs:
 
     # Events
 
-    async def pug_started(self, pug: Pug):
+    async def on_pug_start(self, pug: Pug):
         """Fires when a PUG is started."""
         ctx = pug.ctx
         LOG.debug("PUG started; #%s in %s", ctx.channel, ctx.guild)
@@ -152,7 +169,7 @@ class R6Pugs:
                        "".format(ctx))
         await pug.run_initial_setup()
 
-    async def pug_ended(self, pug: Pug):
+    async def on_pug_end(self, pug: Pug):
         """Fires when a PUG is ended, and removes it from this cog's PUGs."""
         ctx = pug.ctx
         LOG.debug("PUG ended; #%s in %s", ctx.channel, ctx.guild)
@@ -169,7 +186,7 @@ class R6Pugs:
             ctx.bot.loop.call_later(_DELETE_CHANNEL_AFTER, ctx.bot.loop.create_task, coro)
         await ctx.send(msg)
 
-    async def ten_players_waiting(self, pug: Pug):
+    async def on_tenth_player(self, pug: Pug):
         """Fires when there are 10 players waiting in a queue
          but no match is starting.
         """
@@ -180,14 +197,14 @@ class R6Pugs:
                 await pug.run_match()
                 break
 
-    async def pug_match_started(self, match: PugMatch):
+    async def on_pug_match_start(self, match: PugMatch):
         """Fires when a PUG match starts."""
         ctx = match.ctx
         LOG.debug("Match starting; #%s in %s", ctx.channel, ctx.guild)
         await ctx.send("The match is starting!")
         await match.send_summary()
 
-    async def pug_match_ended(self, match: PugMatch):
+    async def on_pug_match_end(self, match: PugMatch):
         """Fires when a PUG match ends."""
         ctx = match.ctx
         LOG.debug("Match ending; #%s in %s", ctx.channel, ctx.guild)
@@ -197,10 +214,6 @@ class R6Pugs:
         losing_score = min(score for score in match.final_score)
         losing_team_idx = match.final_score.index(losing_score)
         losing_team = match.teams[losing_team_idx]
-        winning_team = match.teams[int(not losing_team_idx)]
-        for winner, loser in zip(winning_team, losing_team):
-            await self.update_stats(winner, match.map_, True)
-            await self.update_stats(loser, match.map_, False)
         if pug.settings["losers_leave"] and match.final_score is not None:
             await ctx.send("Losers are being removed from the PUG, they may use"
                            " `{}pug join #{}` to rejoin the queue."
@@ -209,21 +222,6 @@ class R6Pugs:
                 pug.remove_member(player)
             if len(pug.queue) > 10:
                 ctx.bot.dispatch("tenth_player", pug)
-
-    async def update_stats(self, player: discord.Member, map_: str, win: bool):
-        """Update the stats for this player given a match's results."""
-        settings = self.conf.member(player)
-        if win:
-            total = settings.wins
-        else:
-            total = settings.losses
-        total_n = await total()
-        await total.set(total_n + 1)
-        stats = await settings.map_stats()
-        if map_ not in stats:
-            stats[map_] = (0, 0)
-        stats[map_][int(not win)] += 1
-        await settings.map_stats.set(stats)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
         """Fires when a text channel is deleted and ends any PUGs which it may
