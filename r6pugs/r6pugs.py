@@ -12,7 +12,7 @@ UNIQUE_ID = 0x315e5521
 _DELETE_CHANNEL_AFTER = 300 # seconds
 
 class R6Pugs:
-    """Cog to run PuGs for Rainbow Six."""
+    """Cog to run PUGs for Rainbow Six."""
 
     def __init__(self):
         self.pugs = []
@@ -23,20 +23,20 @@ class R6Pugs:
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
     async def pug(self, ctx: commands.Context):
-        """Manage PuGs."""
+        """Manage PUGs."""
         if ctx.invoked_subcommand is None:
             await ctx.bot.send_cmd_help(ctx)
 
     @pug.command(name="start")
     async def pug_start(self, ctx: commands.Context, channel: discord.TextChannel=None):
-        """Start a new PuG.
+        """Start a new PUG.
 
         If no channel is specified, a temporary channel will be created."""
         temp_channel = False
         if channel is not None:
             pug = self.get_pug(channel)
             if pug is not None:
-                await ctx.send("There is already an ongoing PuG in that channel.")
+                await ctx.send("There is already an ongoing PUG in that channel.")
                 return
         else:
             channel = await self.create_temp_channel(ctx.guild)
@@ -50,101 +50,120 @@ class R6Pugs:
 
     @pug.command(name="stop")
     async def pug_stop(self, ctx: commands.Context, channel: discord.TextChannel=None):
-        """Stop an ongoing PuG.
+        """Stop an ongoing PUG.
 
-        If no channel is specified, it will try to end the PuG in this channel."""
+        If no channel is specified, it will try to end the PUG in this channel."""
         if channel is None:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send("There is no PuG running in {0.mention}.".format(channel))
+            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         pug.end()
 
     @pug.command(name="join")
     async def pug_join(self, ctx: commands.Context, channel: discord.TextChannel=None):
-        """Join a PuG.
+        """Join a PUG.
 
-        If no channel is specified, it tries to join the PuG in the current channel."""
+        If no channel is specified, it tries to join the PUG in the current channel."""
         if channel is None:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send("There is no Pug running in {0.mention}.".format(channel))
+            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         try:
             pug.add_member(ctx.author)
         except Forbidden:
-            await ctx.send("You are not permitted to join that PuG.")
+            await ctx.send("You are not permitted to join that PUG.")
         else:
-            await ctx.send("You have successfully joined the PuG in {0.mention}.".format(channel))
+            await ctx.send("You have successfully joined the PUG in {0.mention}.".format(channel))
 
     @pug.command(name="leave")
     async def pug_leave(self, ctx: commands.Context, channel: discord.TextChannel=None):
-        """Leave a PuG.
+        """Leave a PUG.
 
-        If no channel is specified, it tries to leave the PuG in the current channel."""
+        If no channel is specified, it tries to leave the PUG in the current channel."""
         if channel is None:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send("There is no Pug running in {0.mention}.".format(channel))
+            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         try:
             pug.remove_member(ctx.author)
         except ValueError:
-            await ctx.send("You are not in that PuG.")
+            await ctx.send("You are not in that PUG.")
         else:
-            await ctx.send("You have successfully left the PuG in {0.mention}.".format(channel))
+            await ctx.send("You have successfully left the PUG in {0.mention}.".format(channel))
+
+    async def pug_submit(self, ctx: commands.Context, your_score: int, their_score: int):
+        """Submit scores for a PUG match."""
+        pug = self.get_pug(ctx.channel)
+        if pug is None:
+            await ctx.send("There is no PUG running in this channel.")
+            return
+        if any(score < 0 for score in (your_score, their_score)):
+            await ctx.send("Scores must be positive.")
+            return
+        match = pug.match
+        if match is None:
+            await ctx.send("There's no ongoing match for this PUG.")
+            return
+        if not match.has_member(ctx.author):
+            await ctx.send("You are not in the match for this PUG.")
+            return
+        match.submit_score((your_score, their_score), ctx.author)
+        await ctx.send("Score has been submitted.")
 
     def get_pug(self, channel: discord.TextChannel):
-        """Get the PuG at the given channel.
+        """Get the PUG at the given channel.
 
-        Returns `None` if no such PuG exists."""
+        Returns `None` if no such PUG exists."""
         return next((p for p in self.pugs if p.ctx.channel == channel), None)
 
     async def create_temp_channel(self, guild: discord.Guild) -> discord.TextChannel:
-        """Create a temporary text channel to run a PuG."""
+        """Create a temporary text channel to run a PUG."""
         # Get the channel name
         name = None
         for idx in range(1, 100):
             name = "pug-{}".format(idx)
             if not any(c.name == name for c in guild.text_channels):
                 break
-        return await guild.create_text_channel(name, reason="Temporary PuG channel")
+        return await guild.create_text_channel(name, reason="Temporary PUG channel")
 
     async def delete_temp_channel(self, channel: discord.TextChannel):
-        """Delete a temporary PuG channel."""
+        """Delete a temporary PUG channel."""
         try:
-            await channel.delete(reason="Temporary PuG channel")
+            await channel.delete(reason="Temporary PUG channel")
         except (discord.errors.HTTPException, discord.errors.NotFound):
             pass
 
     # Events
 
     async def pug_started(self, pug: Pug):
-        """Fires when a PuG is started."""
+        """Fires when a PUG is started."""
         ctx = pug.ctx
-        LOG.debug("PuG started; #%s in %s", ctx.channel, ctx.guild)
+        LOG.debug("PUG started; #%s in %s", ctx.channel, ctx.guild)
         if pug not in self.pugs:
             self.pugs.append(pug)
-        await ctx.send("A PuG has been started here by {0.author.mention}, use"
+        await ctx.send("A PUG has been started here by {0.author.mention}, use"
                        " `{0.prefix}pug join #{0.channel.name}` to join it."
                        "".format(ctx))
         await pug.run_initial_setup()
 
     async def pug_ended(self, pug: Pug):
-        """Fires when a PuG is ended, and removes it from this cog's PuGs."""
+        """Fires when a PUG is ended, and removes it from this cog's PUGs."""
         ctx = pug.ctx
-        LOG.debug("PuG ended; #%s in %s", ctx.channel, ctx.guild)
+        LOG.debug("PUG ended; #%s in %s", ctx.channel, ctx.guild)
         if pug in self.pugs:
             self.pugs.remove(pug)
         if pug.ctx.channel not in pug.ctx.guild.text_channels:
             return # In case channel was forcibly deleted
-        msg = "The PuG here has been ended."
+        msg = "The PUG here has been ended."
         if pug.settings["temp_channel"]:
             msg += ("\nSince this channel was a temporary channel created specifically for"
-                    " this PuG, it will be deleted in 5 minutes.")
+                    " this PUG, it will be deleted in 5 minutes.")
             coro = self.delete_temp_channel(ctx.channel)
             LOG.debug("Scheduling deletion of channel #%s", ctx.channel)
             ctx.bot.loop.call_later(_DELETE_CHANNEL_AFTER, ctx.bot.loop.create_task, coro)
@@ -162,14 +181,14 @@ class R6Pugs:
                 break
 
     async def pug_match_started(self, match: PugMatch):
-        """Fires when a PuG match starts."""
+        """Fires when a PUG match starts."""
         ctx = match.ctx
         LOG.debug("Match starting; #%s in %s", ctx.channel, ctx.guild)
         await ctx.send("The match is starting!")
         await match.send_summary()
 
     async def pug_match_ended(self, match: PugMatch):
-        """Fires when a PuG match ends."""
+        """Fires when a PUG match ends."""
         ctx = match.ctx
         LOG.debug("Match ending; #%s in %s", ctx.channel, ctx.guild)
         await ctx.send("The match has ended.")
@@ -185,7 +204,7 @@ class R6Pugs:
             losses = await self.conf.member(loser).losses()
             await self.conf.member(loser).losses.set(losses + 1)
         if pug.settings["losers_leave"] and match.final_score is not None:
-            await ctx.send("Losers are being removed from the PuG, they may use"
+            await ctx.send("Losers are being removed from the PUG, they may use"
                            " `{}pug join #{}` to rejoin the queue."
                            "".format(ctx.prefix, ctx.channel.name))
             for player in losing_team:
@@ -194,7 +213,7 @@ class R6Pugs:
                 ctx.bot.dispatch("tenth_player", pug)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
-        """Fires when a text channel is deleted and ends any PuGs which it may
+        """Fires when a text channel is deleted and ends any PUGs which it may
          have been running in it.
         """
         if not isinstance(channel, discord.TextChannel):
