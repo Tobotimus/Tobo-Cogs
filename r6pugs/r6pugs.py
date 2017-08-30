@@ -18,7 +18,7 @@ class R6Pugs:
         self.pugs = []
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_channel(pug_running=False)
-        self.conf.register_member(wins=0, losses=0)
+        self.conf.register_member(wins=0, losses=0, map_stats={})
 
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
@@ -199,10 +199,8 @@ class R6Pugs:
         losing_team = match.teams[losing_team_idx]
         winning_team = match.teams[int(not losing_team_idx)]
         for winner, loser in zip(winning_team, losing_team):
-            wins = await self.conf.member(winner).wins()
-            await self.conf.member(winner).wins.set(wins + 1)
-            losses = await self.conf.member(loser).losses()
-            await self.conf.member(loser).losses.set(losses + 1)
+            await self.update_stats(winner, match.map_, True)
+            await self.update_stats(loser, match.map_, False)
         if pug.settings["losers_leave"] and match.final_score is not None:
             await ctx.send("Losers are being removed from the PUG, they may use"
                            " `{}pug join #{}` to rejoin the queue."
@@ -211,6 +209,21 @@ class R6Pugs:
                 pug.remove_member(player)
             if len(pug.queue) > 10:
                 ctx.bot.dispatch("tenth_player", pug)
+
+    async def update_stats(self, player: discord.Member, map_: str, win: bool):
+        """Update the stats for this player given a match's results."""
+        settings = self.conf.member(player)
+        if win:
+            total = settings.wins
+        else:
+            total = settings.losses
+        total_n = await total()
+        await total.set(total_n + 1)
+        stats = await settings.map_stats()
+        if map_ not in stats:
+            stats[map_] = (0, 0)
+        stats[map_][int(not win)] += 1
+        await settings.map_stats.set(stats)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
         """Fires when a text channel is deleted and ends any PUGs which it may
