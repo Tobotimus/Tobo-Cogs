@@ -72,7 +72,12 @@ class StreamLock:
 
     @streamlock.command(name="lockmsg", pass_context=True)
     async def streamlock_lockmsg(self, ctx: commands.Context, *, message: str = None):
-        """Set the message for when the channel is locked."""
+        """Set the message for when the channel is locked.
+
+        Leave <message> blank to see the current message.
+
+        To include the name of the stream in the message, simply
+         use the placeholder {stream} in the message."""
         channel = ctx.message.channel
         settings = self._load(channel=channel)
         if message is None:
@@ -81,12 +86,18 @@ class StreamLock:
                                "".format(box(settings["LOCK_MSG"])))
             return
         settings["LOCK_MSG"] = message
-        await self.bot.say("Done.")
+        await self.bot.say("Done. Sending test message here...")
+        await self.send_lock_msg("ExampleStream", channel)
         self._save(settings, channel=channel)
 
     @streamlock.command(name="unlockmsg", pass_context=True)
     async def streamlock_unlockmsg(self, ctx: commands.Context, *, message: str = None):
-        """Set the message for when the channel is unlocked."""
+        """Set the message for when the channel is unlocked.
+
+        Leave <message> blank to see the current message.
+
+        To include the name of the stream in the message, simply
+         use the placeholder {stream} in the message."""
         channel = ctx.message.channel
         settings = self._load(channel=channel)
         if message is None:
@@ -95,8 +106,47 @@ class StreamLock:
                                "".format(box(settings["UNLOCK_MSG"])))
             return
         settings["UNLOCK_MSG"] = message
-        await self.bot.say("Done.")
+        await self.bot.say("Done. Sending test message here...")
+        await self.send_lock_msg("ExampleStream", channel, unlock=True)
         self._save(settings, channel=channel)
+
+    async def on_stream_online(self, stream: str):
+        """Fires when a stream goes online which is linked
+         to one or multiple channels.
+        """
+        await self._update_channels(stream)
+
+    async def on_stream_offline(self, stream: str):
+        """Fires when a stream goes offline which is linked
+         to one or multiple channels.
+        """
+        await self._update_channels(stream, unlock=True)
+
+    async def _update_channels(self, stream: str, unlock: bool = False):
+        for channel in self._get_all_channels(stream):
+            await self.send_lock_msg(stream, channel, unlock=unlock)
+            # Assuming the default role is always position 0.
+            (role, overwrite) = channel.overwrites[0]
+            overwrite.update(send_messages=None if unlock else False)
+            await self.bot.edit_channel_permissions(channel, role, overwrite)
+
+    async def send_lock_msg(self, stream: str, channel: discord.Channel, *,
+                            unlock: bool = False):
+        """Send the lock/unlock message for a stream to a particular channel."""
+        settings = self._load(channel=channel)
+        if unlock:
+            message = settings["UNLOCK_MSG"]
+        else:
+            message = settings["LOCK_MSG"]
+        await self.bot.send_message(channel, message.format(stream=stream))
+
+    def _get_all_channels(self, stream: str):
+        for c_id, data in self.settings["CHANNELS"].items():
+            exists = next((s for s in data["STREAMS"] if s.lower() == stream.lower()), None)
+            if exists is not None:
+                channel = self.bot.get_channel(c_id)
+                if channel is not None:
+                    yield channel
 
     def _save(self, settings, *,
               server: discord.Server=None,
