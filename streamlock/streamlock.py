@@ -8,30 +8,60 @@ Implemented by: _Tobotimus_ (https://github.com/Tobotimus)
 
 import os
 import logging
+import asyncio
+import aiohttp
 import discord
 from discord.ext import commands
 from cogs.utils.dataIO import dataIO
 from cogs.utils.chat_formatting import box
 
-_DATA_DIR = os.path.join("data", __name__)
+_DATA_DIR = os.path.join("data", "streamlock")
 _DATA_FILENAME = "settings.json"
 _DATA_PATH = os.path.join(_DATA_DIR, _DATA_FILENAME)
 _DEFAULT_SETTINGS = {
-    "SERVER": {},
-    "CHANNEL": {}
+    "CHANNELS": {},
+    "STREAMS": {},
+    "TOKEN": None
 }
 _DEFAULT_LOCK_MSG = ("https://twitch.tv/{stream} has gone online,"
                      " and this channel has been muted.")
 _DEFAULT_UNLOCK_MSG = ("https://twitch.tv/{stream} has gone offline,"
                        " this channel is now unmuted.")
+_DEFAULT_STREAM_SETTINGS = {
+    "CHANNELS": [],
+    "ID": None,
+    "ONLINE": False
+}
 _DEFAULT_CHANNEL_SETTINGS = {
-    "STREAMS": [],
     "LOCK_MSG": _DEFAULT_LOCK_MSG,
     "UNLOCK_MSG": _DEFAULT_UNLOCK_MSG
 }
-_DEFAULT_SERVER_SETTINGS = {}
+_CHECK_DELAY = 30
 
 LOG = logging.getLogger("red.streamlock")
+
+class StreamLockError(Exception):
+    """Base error for StreamLock."""
+    pass
+
+class InvalidToken(StreamLockError):
+    """Invalid twitch token. The bot owner can set the
+     twitch token using `streamlockset clientid`.
+
+    To get your twitch token, follow the instructions on this blog post:
+     https://blog.twitch.tv/client-id-required-for-kraken-api-calls-afbb8e95f843
+    """
+    pass
+
+class StreamNotFound(StreamLockError):
+    """That stream could not be found."""
+    pass
+
+class APIError(StreamLockError):
+    """Something went wrong whilst contacting the
+     twitch API.
+    """
+    pass
 
 class StreamLock:
     """
@@ -49,6 +79,13 @@ class StreamLock:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.settings = dataIO.load_json(_DATA_PATH)
+        if self.settings["TOKEN"] is None:
+            streams_cog = bot.get_cog("Streams")
+            if streams_cog is not None:
+                token = streams_cog.settings.get("TWITCH_TOKEN")
+                if token is not None:
+                    self.settings["TOKEN"] = token
+                    self._save(self.settings)
 
     @commands.group(pass_context=True, no_pm=True)
     async def streamlock(self, ctx: commands.Context):
@@ -60,15 +97,32 @@ class StreamLock:
     async def streamlock_toggle(self, ctx: commands.Context, stream: str):
         """Toggle a Twitch stream locking this channel."""
         channel = ctx.message.channel
-        settings = self._load(channel=channel)
-        existing = next((s for s in settings["STREAMS"] if s.lower() == stream.lower()), None)
-        if existing is not None:
-            settings["STREAMS"].remove(existing)
+        settings = self._load(stream=stream)
+        enabled = channel.id in settings["CHANNELS"]
+        if enabled:
+            settings["CHANNELS"].remove(channel.id)
         else:
-            settings["STREAMS"].append(stream)
+            if self.settings["TOKEN"] is None:
+                await self.bot.say("The bot owner must set the twitch Client-ID"
+                                   " first by doing `{}streamlockset clientid`."
+                                   "".format(ctx.prefix))
+                return
+            try:
+                stream_id = await self.get_stream_id(stream)
+            except StreamNotFound:
+                await self.bot.say(
+                    "I couldn't find the twitch channel *{}*, ensure it exists"
+                    " and is spelt correctly.".format(stream))
+                return
+            except StreamLockError as err:
+                await self.bot.say(err.__class__.__doc__)
+                return
+            if settings["ID"] is None:
+                settings["ID"] = stream_id
+            settings["CHANNELS"].append(channel.id)
         await self.bot.say("*{0}* going online will {1} lock this channel."
-                           "".format(stream, "now" if existing is None else "no longer"))
-        self._save(settings, channel=channel)
+                           "".format(stream, "no longer" if enabled else "now"))
+        self._save(settings, stream=stream)
 
     @streamlock.command(name="lockmsg", pass_context=True)
     async def streamlock_lockmsg(self, ctx: commands.Context, *, message: str = None):
@@ -110,6 +164,60 @@ class StreamLock:
         await self.send_lock_msg("ExampleStream", channel, unlock=True)
         self._save(settings, channel=channel)
 
+    async def stream_checker(self):
+        """Checks all streams if they are online."""
+        while self == self.bot.get_cog(self.__class__.__name__):
+            for settings in self.settings["STREAMS"].values():
+                name = await self.check_stream_online(settings["ID"])
+                if name and settings["ONLINE"] is False:
+                    self.bot.dispatch("stream_online", name)
+                elif name is False and settings["ONLINE"] is True:
+                    self.bot.dispatch("stream_offline", name)
+            await asyncio.sleep(_CHECK_DELAY)
+
+    async def get_stream_id(self, stream: str):
+        """Get a stream's ID, to be used in API requests."""
+        session = aiohttp.ClientSession()
+        url = "https://api.twitch.tv/kraken/users?login={}".format(stream)
+        headers = self._get_twitch_headers()
+        async with session.get(url, headers=headers) as resp:
+            data = await resp.json(encoding='utf-8')
+        await session.close()
+        if resp.status == 200:
+            result = data["users"][0]
+            return result["_id"]
+        if resp.status == 400:
+            raise InvalidToken()
+        elif resp.status == 404:
+            raise StreamNotFound(stream)
+        else:
+            raise APIError()
+
+    async def check_stream_online(self, stream_id):
+        """Check if a twitch stream is online."""
+        session = aiohttp.ClientSession()
+        url = "https://api.twitch.tv/kraken/streams/{}".format(stream_id)
+        headers = self._get_twitch_headers()
+        async with session.get(url, headers=headers) as resp:
+            data = await resp.json(encoding='utf-8')
+        await session.close()
+        if resp.status == 200:
+            if data["stream"] is None:
+                return False
+            return data["stream"]["channel"]["display_name"]
+        if resp.status == 400:
+            raise InvalidToken()
+        elif resp.status == 404:
+            raise StreamNotFound(stream_id)
+        else:
+            raise APIError()
+
+    def _get_twitch_headers(self):
+        return {
+            'Client-ID': self.settings["TOKEN"],
+            'Accept': 'application/vnd.twitchtv.v5+json'
+        }
+
     async def on_stream_online(self, stream: str):
         """Fires when a stream goes online which is linked
          to one or multiple channels.
@@ -123,7 +231,11 @@ class StreamLock:
         await self._update_channels(stream, unlock=True)
 
     async def _update_channels(self, stream: str, unlock: bool = False):
-        for channel in self._get_all_channels(stream):
+        settings = self._load(stream=stream)
+        channels = (self.bot.get_channel(id_) for id_ in settings["CHANNELS"])
+        for channel in channels:
+            if channel is None:
+                continue
             await self.send_lock_msg(stream, channel, unlock=unlock)
             # Assuming the default role is always position 0.
             (role, overwrite) = channel.overwrites[0]
@@ -140,34 +252,23 @@ class StreamLock:
             message = settings["LOCK_MSG"]
         await self.bot.send_message(channel, message.format(stream=stream))
 
-    def _get_all_channels(self, stream: str):
-        for c_id, data in self.settings["CHANNELS"].items():
-            exists = next((s for s in data["STREAMS"] if s.lower() == stream.lower()), None)
-            if exists is not None:
-                channel = self.bot.get_channel(c_id)
-                if channel is not None:
-                    yield channel
-
     def _save(self, settings, *,
-              server: discord.Server=None,
-              channel: discord.Channel=None):
-        if server is None and channel is None:
-            self.settings = settings
-        elif server is None:
-            self.settings["CHANNEL"][channel.id] = settings
-        elif channel is None:
-            self.settings["SERVER"][server.id] = settings
+              channel: discord.Channel=None,
+              stream: str = None):
+        if channel is not None:
+            self.settings["CHANNELS"][channel.id] = settings
+        elif stream is not None:
+            self.settings["STREAMS"][stream.lower()] = settings
         dataIO.save_json(_DATA_PATH, self.settings)
 
     def _load(self, *,
-              server: discord.Server=None,
-              channel: discord.Channel=None):
-        if server is None and channel is None:
-            return self.settings
-        if server is None:
-            return self.settings["CHANNEL"].get(channel.id, _DEFAULT_CHANNEL_SETTINGS)
-        if channel is None:
-            return self.settings["SERVER"].get(server.id, _DEFAULT_SERVER_SETTINGS)
+              channel: discord.Channel=None,
+              stream: str = None):
+        if channel is not None:
+            return self.settings["CHANNELS"].get(channel.id, _DEFAULT_CHANNEL_SETTINGS)
+        if stream is not None:
+            return self.settings["STREAMS"].get(stream.lower(), _DEFAULT_STREAM_SETTINGS)
+        return self.settings
 
 def _check_folders():
     if not os.path.exists(_DATA_DIR):
@@ -183,4 +284,7 @@ def setup(bot: commands.Bot):
     """Load StreamLock."""
     _check_folders()
     _check_files()
-    bot.add_cog(StreamLock(bot))
+    cog = StreamLock(bot)
+    loop = asyncio.get_event_loop()
+    loop.create_task(cog.stream_checker())
+    bot.add_cog(cog)
