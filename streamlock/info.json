@@ -1,0 +1,10 @@
+{
+    "NAME": "StreamLock",
+    "AUTHOR": "Tobotimus",
+    "SHORT": "Twitch streams can lock discord channels.",
+    "HIDDEN": true,
+    "TAGS": [ "stream", "twitch", "streams", "lock" ],
+    "DESCRIPTION": "Twitch streams can lock discord channels.",
+    "REQUIREMENTS": [],
+    "INSTALL_MSG": "Hi, Tobotimus here! To get started, use `[p]streamlock`"
+}
