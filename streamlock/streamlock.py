@@ -12,6 +12,7 @@ import asyncio
 import aiohttp
 import discord
 from discord.ext import commands
+from cogs.utils import checks
 from cogs.utils.dataIO import dataIO
 from cogs.utils.chat_formatting import box
 
@@ -21,11 +22,11 @@ _DATA_PATH = os.path.join(_DATA_DIR, _DATA_FILENAME)
 _DEFAULT_SETTINGS = {
     "CHANNELS": {},
     "STREAMS": {},
-    "TOKEN": None
+    "CLIENT_ID": None
 }
 _DEFAULT_LOCK_MSG = ("https://twitch.tv/{stream} has gone online,"
                      " and this channel has been muted.")
-_DEFAULT_UNLOCK_MSG = ("https://twitch.tv/{stream} has gone offline,"
+_DEFAULT_UNLOCK_MSG = ("<https://twitch.tv/{stream}> has gone offline,"
                        " this channel is now unmuted.")
 _DEFAULT_STREAM_SETTINGS = {
     "CHANNELS": [],
@@ -34,6 +35,7 @@ _DEFAULT_STREAM_SETTINGS = {
 }
 _DEFAULT_CHANNEL_SETTINGS = {
     "LOCK_MSG": _DEFAULT_LOCK_MSG,
+    "LOCKED_BY": None,
     "UNLOCK_MSG": _DEFAULT_UNLOCK_MSG
 }
 _CHECK_DELAY = 30
@@ -79,12 +81,12 @@ class StreamLock:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.settings = dataIO.load_json(_DATA_PATH)
-        if self.settings["TOKEN"] is None:
+        if not self.settings["CLIENT_ID"]:
             streams_cog = bot.get_cog("Streams")
             if streams_cog is not None:
                 token = streams_cog.settings.get("TWITCH_TOKEN")
                 if token is not None:
-                    self.settings["TOKEN"] = token
+                    self.settings["CLIENT_ID"] = token
                     self._save(self.settings)
 
     @commands.group(pass_context=True, no_pm=True)
@@ -93,6 +95,7 @@ class StreamLock:
         if not ctx.invoked_subcommand:
             await self.bot.send_cmd_help(ctx)
 
+    @checks.mod_or_permissions(manage_messages=True)
     @streamlock.command(name="toggle", pass_context=True)
     async def streamlock_toggle(self, ctx: commands.Context, stream: str):
         """Toggle a Twitch stream locking this channel."""
@@ -100,11 +103,16 @@ class StreamLock:
         settings = self._load(stream=stream)
         enabled = channel.id in settings["CHANNELS"]
         if enabled:
+            channel_settings = self._load(channel=channel)
+            locked = channel_settings["LOCKED_BY"]
+            if locked is not None and locked.lower() == stream.lower():
+                await self.bot.say("Unlocking channel...")
+                await self.unlock(channel)
             settings["CHANNELS"].remove(channel.id)
         else:
             if self.settings["TOKEN"] is None:
                 await self.bot.say("The bot owner must set the twitch Client-ID"
-                                   " first by doing `{}streamlockset clientid`."
+                                   " first by doing `{}streamlock clientid`."
                                    "".format(ctx.prefix))
                 return
             try:
@@ -120,10 +128,13 @@ class StreamLock:
             if settings["ID"] is None:
                 settings["ID"] = stream_id
             settings["CHANNELS"].append(channel.id)
+            if settings["ONLINE"]:
+                self.bot.dispatch("stream_online", stream)
         await self.bot.say("*{0}* going online will {1} lock this channel."
                            "".format(stream, "no longer" if enabled else "now"))
         self._save(settings, stream=stream)
 
+    @checks.mod_or_permissions(manage_messages=True)
     @streamlock.command(name="lockmsg", pass_context=True)
     async def streamlock_lockmsg(self, ctx: commands.Context, *, message: str = None):
         """Set the message for when the channel is locked.
@@ -144,6 +155,7 @@ class StreamLock:
         await self.send_lock_msg("ExampleStream", channel)
         self._save(settings, channel=channel)
 
+    @checks.mod_or_permissions(manage_messages=True)
     @streamlock.command(name="unlockmsg", pass_context=True)
     async def streamlock_unlockmsg(self, ctx: commands.Context, *, message: str = None):
         """Set the message for when the channel is unlocked.
@@ -163,6 +175,21 @@ class StreamLock:
         await self.bot.say("Done. Sending test message here...")
         await self.send_lock_msg("ExampleStream", channel, unlock=True)
         self._save(settings, channel=channel)
+
+    @checks.is_owner()
+    @streamlock.command(name="clientid")
+    async def streamlock_clientid(self, client_id: str):
+        """Set the Client-ID for the Twitch API.
+
+        To obtain your Client-ID:
+         1. Follow this link: https://dev.twitch.tv/dashboard/apps/create
+         2. Log in (this may redirect you to the home page, if so click on the above link again.)
+         3. Create an application. For the redirect URI, simply use http://localhost
+         4. Obtain your Client-ID!
+        """
+        self.settings["CLIENT_ID"] = client_id
+        self._save(self.settings)
+        await self.bot.say("Client ID set!")
 
     async def stream_checker(self):
         """Checks all streams if they are online."""
@@ -184,6 +211,8 @@ class StreamLock:
             data = await resp.json(encoding='utf-8')
         await session.close()
         if resp.status == 200:
+            if not data["users"]:
+                raise StreamNotFound(stream)
             result = data["users"][0]
             return result["_id"]
         if resp.status == 400:
@@ -214,7 +243,7 @@ class StreamLock:
 
     def _get_twitch_headers(self):
         return {
-            'Client-ID': self.settings["TOKEN"],
+            'Client-ID': self.settings["CLIENT_ID"],
             'Accept': 'application/vnd.twitchtv.v5+json'
         }
 
@@ -222,12 +251,18 @@ class StreamLock:
         """Fires when a stream goes online which is linked
          to one or multiple channels.
         """
+        settings = self._load(stream=stream)
+        settings["ONLINE"] = True
+        self._save(settings, stream=stream)
         await self._update_channels(stream)
 
     async def on_stream_offline(self, stream: str):
         """Fires when a stream goes offline which is linked
          to one or multiple channels.
         """
+        settings = self._load(stream=stream)
+        settings["ONLINE"] = False
+        self._save(settings, stream=stream)
         await self._update_channels(stream, unlock=True)
 
     async def _update_channels(self, stream: str, unlock: bool = False):
@@ -236,11 +271,36 @@ class StreamLock:
         for channel in channels:
             if channel is None:
                 continue
+            channel_settings = self._load(channel=channel)
+            if channel_settings["LOCKED_BY"]:
+                continue
             await self.send_lock_msg(stream, channel, unlock=unlock)
-            # Assuming the default role is always position 0.
-            (role, overwrite) = channel.overwrites[0]
-            overwrite.update(send_messages=None if unlock else False)
-            await self.bot.edit_channel_permissions(channel, role, overwrite)
+            if unlock:
+                await self.unlock(channel)
+            else:
+                await self.lock(channel, stream)
+            self._save(channel_settings, channel=channel)
+
+    async def unlock(self, channel: discord.Channel):
+        """Unlock a channel."""
+        settings = self._load(channel=channel)
+        settings["LOCKED_BY"] = None
+        self._save(settings, channel=channel)
+        await self._update_overwrites(channel, unlock=True)
+
+    async def lock(self, channel: discord.Channel, stream: str):
+        """Lock a channel."""
+        settings = self._load(channel=channel)
+        settings["LOCKED_BY"] = stream
+        self._save(settings, channel=channel)
+        await self._update_overwrites(channel)
+
+    async def _update_overwrites(self, channel: discord.Channel, *,
+                                 unlock: bool = False):
+        # Assuming the default role is always position 0.
+        (role, overwrite) = channel.overwrites[0]
+        overwrite.update(send_messages=None if unlock else False)
+        await self.bot.edit_channel_permissions(channel, role, overwrite)
 
     async def send_lock_msg(self, stream: str, channel: discord.Channel, *,
                             unlock: bool = False):
@@ -258,7 +318,11 @@ class StreamLock:
         if channel is not None:
             self.settings["CHANNELS"][channel.id] = settings
         elif stream is not None:
-            self.settings["STREAMS"][stream.lower()] = settings
+            if stream.lower() in self.settings["STREAMS"]:
+                if not self.settings["STREAMS"][stream.lower()]["CHANNELS"]:
+                    del self.settings["STREAMS"][stream.lower()]
+            else:
+                self.settings["STREAMS"][stream.lower()] = settings
         dataIO.save_json(_DATA_PATH, self.settings)
 
     def _load(self, *,
