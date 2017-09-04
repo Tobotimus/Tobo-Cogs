@@ -86,7 +86,7 @@ class R6Pugs:
             await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         success = pug.remove_member(member)
-        if success:
+        if success is not False:
             await ctx.send("*{0.display_name}* has been kicked from the PUG in {1.mention}."
                            "".format(member, channel))
             return
@@ -104,11 +104,14 @@ class R6Pugs:
             await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         try:
-            pug.add_member(ctx.author)
+            success = pug.add_member(ctx.author)
         except Forbidden:
             await ctx.send("You are not permitted to join that PUG.")
         else:
-            await ctx.send("You have successfully joined the PUG in {0.mention}.".format(channel))
+            if success is False:
+                await ctx.send("You are already in that Pug.")
+                return
+            await ctx.send("Done.")
 
     @pug.command(name="leave")
     async def pug_leave(self, ctx: commands.Context, channel: discord.TextChannel=None):
@@ -121,12 +124,11 @@ class R6Pugs:
         if pug is None:
             await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
-        try:
-            pug.remove_member(ctx.author)
-        except ValueError:
-            await ctx.send("You are not in that PUG.")
-        else:
-            await ctx.send("You have successfully left the PUG in {0.mention}.".format(channel))
+        success = pug.remove_member(ctx.author)
+        if success is False:
+            await ctx.send("You are not in that Pug.")
+            return
+        await ctx.send("Done.")
 
     @pug.command(name="submit")
     async def pug_submit(self, ctx: commands.Context, your_score: int, their_score: int):
@@ -226,6 +228,37 @@ class R6Pugs:
             ctx.bot.loop.call_later(_DELETE_CHANNEL_AFTER, ctx.bot.loop.create_task, coro)
         await ctx.send(msg)
 
+    async def on_pug_member_join(self, member: discord.Member, pug: Pug):
+        """Fires when a member is added to a Pug."""
+        n_members = len(pug.queue)
+        msg = ""
+        if n_members < 10:
+
+            msg = ("{0.mention} has joined the Pug, {1} more player{2}"
+                   " are needed to start the match!"
+                   "".format(member, 10 - n_members,
+                             "s" if n_members != 9 else ""))
+        elif n_members == 10:
+            msg = ("{0.mention} is the 10th player in the Pug, a match"
+                   " will start now!".format(member))
+        else:
+            msg = ("{0.mention} has joined the Pug and is at position"
+                   "{1} in the queue.".format(member, n_members - 10))
+        await pug.ctx.send(msg)
+
+    async def on_pug_member_remove(self, member: discord.Member, pug: Pug):
+        """Fires when a member is removed from a Pug."""
+        n_members = len(pug.queue)
+        msg = ""
+        if n_members < 10:
+            msg = ("{0.mention} has left the Pug, {1} more player{2}"
+                   " are now needed to start the match."
+                   "".format(member, 10 - n_members,
+                             "s" if n_members != 9 else ""))
+        else:
+            msg = "{0.mention} has left the Pug.".format(member)
+        await pug.ctx.send(msg)
+
     async def on_tenth_player(self, pug: Pug):
         """Fires when there are 10 players waiting in a queue
          but no match is starting.
@@ -260,7 +293,7 @@ class R6Pugs:
                            "".format(ctx.prefix, ctx.channel.name))
             for player in losing_team:
                 pug.remove_member(player)
-            if len(pug.queue) > 10:
+            if len(pug.queue) >= 10:
                 ctx.bot.dispatch("tenth_player", pug)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
