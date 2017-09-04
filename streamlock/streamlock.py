@@ -9,6 +9,7 @@ Implemented by: _Tobotimus_ (https://github.com/Tobotimus)
 import os
 import logging
 import asyncio
+from copy import deepcopy
 import aiohttp
 import discord
 from discord.ext import commands
@@ -49,9 +50,6 @@ class StreamLockError(Exception):
 class InvalidToken(StreamLockError):
     """Invalid twitch token. The bot owner can set the
      twitch token using `streamlockset clientid`.
-
-    To get your twitch token, follow the instructions on this blog post:
-     https://blog.twitch.tv/client-id-required-for-kraken-api-calls-afbb8e95f843
     """
     pass
 
@@ -106,11 +104,20 @@ class StreamLock:
             channel_settings = self._load(channel=channel)
             locked = channel_settings["LOCKED_BY"]
             if locked is not None and locked.lower() == stream.lower():
-                await self.bot.say("Unlocking channel...")
                 await self.unlock(channel)
+                still_locked = next((name for name, sett in self.settings["STREAMS"].items()
+                                     if channel.id in sett["CHANNELS"] and sett["ONLINE"]
+                                     and name.lower() != stream.lower()),
+                                    None)
+                if still_locked is not None:
+                    await self.bot.say("Since *{}* is still online, this channel will stay locked."
+                                       "".format(still_locked))
+                    await self.lock(channel, still_locked)
+                else:
+                    await self.bot.say("Unlocking channel...")
             settings["CHANNELS"].remove(channel.id)
         else:
-            if self.settings["TOKEN"] is None:
+            if self.settings["CLIENT_ID"] is None:
                 await self.bot.say("The bot owner must set the twitch Client-ID"
                                    " first by doing `{}streamlock clientid`."
                                    "".format(ctx.prefix))
@@ -194,12 +201,21 @@ class StreamLock:
     async def stream_checker(self):
         """Checks all streams if they are online."""
         while self == self.bot.get_cog(self.__class__.__name__):
-            for settings in self.settings["STREAMS"].values():
+            to_delete = []
+            for stream, settings in self.settings["STREAMS"].items():
                 name = await self.check_stream_online(settings["ID"])
                 if name and settings["ONLINE"] is False:
+                    LOG.debug("Stream going online %s", stream)
                     self.bot.dispatch("stream_online", name)
                 elif name is False and settings["ONLINE"] is True:
-                    self.bot.dispatch("stream_offline", name)
+                    LOG.debug("Stream going offline %s", stream)
+                    self.bot.dispatch("stream_offline", stream)
+                if not settings["CHANNELS"]:
+                    to_delete.append(stream)
+                await asyncio.sleep(1.0)
+            for key in to_delete:
+                self.settings["STREAMS"].pop(key, None)
+                self._save(self.settings)
             await asyncio.sleep(_CHECK_DELAY)
 
     async def get_stream_id(self, stream: str):
@@ -251,6 +267,7 @@ class StreamLock:
         """Fires when a stream goes online which is linked
          to one or multiple channels.
         """
+        LOG.debug("Event running for %s", stream)
         settings = self._load(stream=stream)
         settings["ONLINE"] = True
         self._save(settings, stream=stream)
@@ -260,6 +277,7 @@ class StreamLock:
         """Fires when a stream goes offline which is linked
          to one or multiple channels.
         """
+        LOG.debug("Event running for %s", stream)
         settings = self._load(stream=stream)
         settings["ONLINE"] = False
         self._save(settings, stream=stream)
@@ -272,14 +290,28 @@ class StreamLock:
             if channel is None:
                 continue
             channel_settings = self._load(channel=channel)
-            if channel_settings["LOCKED_BY"]:
+            locked = bool(channel_settings["LOCKED_BY"])
+            if locked and channel_settings["LOCKED_BY"].lower() != stream.lower():
                 continue
+            if locked and channel_settings["LOCKED_BY"].lower() == stream.lower():
+                if unlock is False:
+                    continue
+                still_locked = next((name for name, sett in self.settings["STREAMS"].items()
+                                     if channel.id in sett["CHANNELS"] and sett["ONLINE"]
+                                     and name.lower() != stream.lower()),
+                                    None)
+                if still_locked is not None:
+                    await self.bot.send_message(
+                        channel,
+                        ("*{}* has gone offline, however since *{}* is still online,"
+                         " this channel will stay locked.".format(stream, still_locked)))
+                    await self.lock(channel, still_locked)
+                    continue
             await self.send_lock_msg(stream, channel, unlock=unlock)
             if unlock:
                 await self.unlock(channel)
             else:
                 await self.lock(channel, stream)
-            self._save(channel_settings, channel=channel)
 
     async def unlock(self, channel: discord.Channel):
         """Unlock a channel."""
@@ -318,20 +350,16 @@ class StreamLock:
         if channel is not None:
             self.settings["CHANNELS"][channel.id] = settings
         elif stream is not None:
-            if stream.lower() in self.settings["STREAMS"]:
-                if not self.settings["STREAMS"][stream.lower()]["CHANNELS"]:
-                    del self.settings["STREAMS"][stream.lower()]
-            else:
-                self.settings["STREAMS"][stream.lower()] = settings
+            self.settings["STREAMS"][stream.lower()] = settings
         dataIO.save_json(_DATA_PATH, self.settings)
 
     def _load(self, *,
               channel: discord.Channel=None,
               stream: str = None):
         if channel is not None:
-            return self.settings["CHANNELS"].get(channel.id, _DEFAULT_CHANNEL_SETTINGS)
+            return self.settings["CHANNELS"].get(channel.id, deepcopy(_DEFAULT_CHANNEL_SETTINGS))
         if stream is not None:
-            return self.settings["STREAMS"].get(stream.lower(), _DEFAULT_STREAM_SETTINGS)
+            return self.settings["STREAMS"].get(stream.lower(), deepcopy(_DEFAULT_STREAM_SETTINGS))
         return self.settings
 
 def _check_folders():
