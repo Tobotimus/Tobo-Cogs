@@ -1,15 +1,33 @@
 """Module for R6Pugs cog."""
+import pkgutil
+import importlib
 import discord
 from discord.ext import commands
 from core import Config
+from core import checks
+from core.utils.chat_formatting import box
 from .log import LOG
 from .pug import Pug
 from .match import PugMatch
 from .errors import Forbidden
+from . import extensions
 
 UNIQUE_ID = 0x315e5521
 
 _DELETE_CHANNEL_AFTER = 300 # seconds
+
+# Decorator
+def pug_starter_or_permissions(**perms):
+    """Check if a user is authorized to manage a PUG."""
+    def _check(ctx: commands.Context):
+        pug = ctx.cog.get_pug(ctx.channel)
+        if pug is None:
+            return True
+        is_starter = ctx.author == pug.ctx.author
+        if is_starter:
+            return True
+        return checks.check_permissions(ctx, perms)
+    return commands.check(_check)
 
 class R6Pugs:
     """Cog to run PUGs for Rainbow Six."""
@@ -17,6 +35,7 @@ class R6Pugs:
     def __init__(self):
         self.pugs = []
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
+        self.conf.register_global(loaded_extensions=[])
 
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
@@ -26,27 +45,20 @@ class R6Pugs:
             await ctx.bot.send_cmd_help(ctx)
 
     @pug.command(name="start")
-    async def pug_start(self, ctx: commands.Context, channel: discord.TextChannel=None):
+    async def pug_start(self, ctx: commands.Context):
         """Start a new PUG.
 
-        If no channel is specified, a temporary channel will be created."""
-        temp_channel = False
-        if channel is not None:
-            pug = self.get_pug(channel)
-            if pug is not None:
-                await ctx.send("There is already an ongoing PUG in that channel.")
-                return
-        else:
-            channel = await self.create_temp_channel(ctx.guild)
-            temp_channel = True
+        A temporary channel will be created to house the PUG."""
+        channel = await self.create_temp_channel(ctx.guild)
         original_channel = ctx.channel
         ctx.channel = channel
-        pug = Pug(ctx, temp_channel=temp_channel)
+        pug = Pug(ctx, temp_channel=True)
         self.pugs.append(pug)
         pug.add_member(ctx.author)
         await original_channel.send("Pug started in {0.mention}.".format(channel))
 
     @pug.command(name="stop")
+    @pug_starter_or_permissions(manage_messages=True)
     async def pug_stop(self, ctx: commands.Context, channel: discord.TextChannel=None):
         """Stop an ongoing PUG.
 
@@ -58,6 +70,27 @@ class R6Pugs:
             await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         pug.end()
+
+    @pug.command(name="kick")
+    @checks.mod_or_permissions(kick_members=True)
+    @pug_starter_or_permissions(manage_messages=True)
+    async def pug_kick(self, ctx: commands.Context, member: discord.Member,
+                       channel: discord.TextChannel=None):
+        """Kick a member from an ongoing PUG.
+
+        If no channel is specified, it will try to use the PUG in this channel."""
+        if channel is None:
+            channel = ctx.channel
+        pug = self.get_pug(channel)
+        if pug is None:
+            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
+            return
+        success = pug.remove_member(member)
+        if success:
+            await ctx.send("*{0.display_name}* has been kicked from the PUG in {1.mention}."
+                           "".format(member, channel))
+            return
+        await ctx.send("*{0.display_name}* is not in that PUG.")
 
     @pug.command(name="join")
     async def pug_join(self, ctx: commands.Context, channel: discord.TextChannel=None):
@@ -115,23 +148,30 @@ class R6Pugs:
         match.submit_score((your_score, their_score), ctx.author)
         await ctx.send("Score has been submitted.")
 
-    @commands.group()
-    async def pugaddons(self, ctx: commands.Context):
-        """Manage addons for this package."""
-        if not ctx.invoked_subcommand:
+    @commands.command()
+    @checks.is_owner()
+    async def pugext(self, ctx: commands.Context, extension: str = None):
+        """Toggle extensions for R6Pugs."""
+        if extension is None:
             await ctx.bot.send_cmd_help(ctx)
+            await self.list_extensions(ctx)
 
-    @pugaddons.command(name="stats")
-    async def addon_stats(self, ctx: commands.Context):
-        """Enable / disable the stats addon."""
-        from .pugstats import PugStats
-        cog = ctx.bot.get_cog(PugStats.__name__)
-        if cog is None:
-            ctx.bot.add_cog(PugStats())
-            await ctx.send("The stats addon has been enabled.")
-        else:
-            ctx.bot.remove_cog(PugStats.__name__)
-            await ctx.send("The stats addon has been disabled.")
+    async def list_extensions(self, ctx: commands.Context):
+        """List extensions to R6Pugs."""
+        packages = pkgutil.iter_modules(extensions.__path__)
+        loaded = await self.conf.loaded_extensions()
+        names = []
+        for _, modname, ispkg in packages:
+            if not ispkg:
+                names.append(modname)
+        if loaded:
+            await ctx.send(box("Loaded extensions:\n{}"
+                               "".format(", ".join(loaded))))
+        if names:
+            await ctx.send(box("Available extensions:\n{}"
+                               "".format(", ".join(names))))
+        if not names or loaded:
+            await ctx.send("There are no extensions available.")
 
     def get_pug(self, channel: discord.TextChannel):
         """Get the PUG at the given channel.
