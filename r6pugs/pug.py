@@ -89,7 +89,7 @@ class Pug:
             if result is None:
                 result = options[0]
                 await menu.finish(result)
-            results.append(result)
+            results.append(dict_.get(result))
         self.settings["maps"] = results[0]
         self.run_team_selection = results[1]
         self.run_map_selection = results[2]
