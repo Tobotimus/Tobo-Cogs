@@ -40,16 +40,20 @@ class Pug:
         if member in self.queue:
             return False
         self.queue.append(member)
-        if len(self.queue) >= 10 and not self.match_running:
+        n_members = len(self.queue)
+        self.ctx.bot.dispatch("pug_member_join", member, self)
+        if n_members >= 10 and not self.match_running:
             self.ctx.bot.dispatch("tenth_player", self)
-        return True
+        return n_members
 
     def remove_member(self, member: discord.Member):
         """Remove a member from this PuG."""
         if member not in self.queue:
             return False
         self.queue.remove(member)
-        return True
+        n_members = len(self.queue)
+        self.ctx.bot.dispatch("pug_member_remove", member, self)
+        return n_members
 
     async def run_initial_setup(self):
         """Set up the PuG and get its settings."""
