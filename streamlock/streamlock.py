@@ -330,8 +330,9 @@ class StreamLock:
     async def _update_overwrites(self, channel: discord.Channel, *,
                                  unlock: bool = False):
         # Assuming the default role is always position 0.
-        (role, overwrite) = channel.overwrites[0]
-        overwrite.update(send_messages=None if unlock else False)
+        role = channel.server.default_role
+        overwrite = channel.overwrites_for(role)
+        overwrite.send_messages = None if unlock else False
         await self.bot.edit_channel_permissions(channel, role, overwrite)
 
     async def send_lock_msg(self, stream: str, channel: discord.Channel, *,
