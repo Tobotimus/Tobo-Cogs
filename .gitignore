@@ -8,3 +8,5 @@
 /Tobo-Cogs.pyproj
 /Tobo-Cogs.sln
 /info_maker.py
+.pylintrc
+.vscode/settings.json
