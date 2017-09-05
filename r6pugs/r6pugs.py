@@ -271,6 +271,7 @@ class R6Pugs:
                 await pug.run_match()
                 break
         else:
+            pug.match_running = False
             await pug.ctx.send("{} more player{} needed to start the match!"
                                "".format(10 - len(pug.queue),
                                          "s are" if len(pug.queue) != 9 else " is"))
