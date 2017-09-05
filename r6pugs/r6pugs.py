@@ -235,15 +235,15 @@ class R6Pugs:
         if n_members < 10:
 
             msg = ("{0.mention} has joined the Pug, {1} more player{2}"
-                   " are needed to start the match!"
+                   " needed to start the match!"
                    "".format(member, 10 - n_members,
-                             "s" if n_members != 9 else ""))
+                             "s are" if n_members != 9 else " is"))
         elif n_members == 10:
             msg = ("{0.mention} is the 10th player in the Pug, a match"
                    " will start now!".format(member))
         else:
             msg = ("{0.mention} has joined the Pug and is at position"
-                   "{1} in the queue.".format(member, n_members - 10))
+                   " {1} in the queue.".format(member, n_members - 10))
         await pug.ctx.send(msg)
 
     async def on_pug_member_remove(self, member: discord.Member, pug: Pug):
@@ -252,9 +252,9 @@ class R6Pugs:
         msg = ""
         if n_members < 10:
             msg = ("{0.mention} has left the Pug, {1} more player{2}"
-                   " are now needed to start the match."
+                   " now needed to start the match."
                    "".format(member, 10 - n_members,
-                             "s" if n_members != 9 else ""))
+                             "s are" if n_members != 9 else " is"))
         else:
             msg = "{0.mention} has left the Pug.".format(member)
         await pug.ctx.send(msg)
@@ -263,12 +263,17 @@ class R6Pugs:
         """Fires when there are 10 players waiting in a queue
          but no match is starting.
         """
+        LOG.debug("Event running for 10th player")
         pug.match_running = True
-        while len(pug.queue) > 10:
+        while len(pug.queue) >= 10:
             success = await pug.ready_up()
             if success:
                 await pug.run_match()
                 break
+        else:
+            await pug.ctx.send("{} more player{} needed to start the match!"
+                               "".format(10 - len(pug.queue),
+                                         "s are" if len(pug.queue) != 9 else " is"))
 
     async def on_pug_match_start(self, match: PugMatch):
         """Fires when a PUG match starts."""
