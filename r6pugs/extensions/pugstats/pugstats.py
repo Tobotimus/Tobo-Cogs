@@ -1,8 +1,8 @@
 """Module for PugStats cog."""
 import discord
 from core import Config
-from ..r6pugs import UNIQUE_ID
-from ..match import PugMatch
+from r6pugs.r6pugs import UNIQUE_ID
+from r6pugs.match import PugMatch
 
 class PugStats:
     """An addon for R6Pugs which keeps track of stats for
@@ -37,5 +37,3 @@ class PugStats:
             stats[map_] = (0, 0)
         stats[map_][int(not win)] += 1
         await settings.map_stats.set(stats)
-
-COG = PugStats

@@ -1,10 +1,10 @@
 """Cog for testing this package."""
 import discord
 from discord.ext import commands
-from ..reactionmenus import (TurnBasedVetoMenu, TurnBasedSelectionMenu,
-                             PollMenu, ConfirmationMenu, SingleSelectionMenu)
+from r6pugs.reactionmenus import (TurnBasedVetoMenu, TurnBasedSelectionMenu,
+                                  PollMenu, ConfirmationMenu, SingleSelectionMenu)
 
-class TestPugs:
+class PugTests:
     """Cog for testing R6Pugs."""
 
     @commands.command()
@@ -70,5 +70,3 @@ class TestPugs:
                                       timeout=10.0)
         selection = await menu.run()
         await ctx.send("Test Complete: {}".format(selection))
-
-COG = TestPugs
