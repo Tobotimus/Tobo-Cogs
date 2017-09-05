@@ -9,7 +9,7 @@ from core.utils.chat_formatting import box
 from .log import LOG
 from .pug import Pug
 from .match import PugMatch
-from .errors import Forbidden
+from .errors import Forbidden, ExtensionNotFound, InvalidExtension
 from . import extensions
 
 UNIQUE_ID = 0x315e5521
@@ -156,23 +156,37 @@ class R6Pugs:
         """Toggle extensions for R6Pugs."""
         if extension is None:
             await ctx.bot.send_cmd_help(ctx)
-            await self.list_extensions(ctx)
+            await self._list_extensions(ctx)
+            return
+        loaded = await self.conf.loaded_extensions()
+        try:
+            module = get_extension(extension)
+        except ExtensionNotFound:
+            await ctx.send("That extension does not exist.")
+        except InvalidExtension:
+            await ctx.send("That extension is invalid.")
+        else:
+            module.setup(ctx.bot)
+            loaded.append(module.__name__)
+            await self.conf.loaded_extensions.set(loaded)
+            await ctx.send("Done.")
 
-    async def list_extensions(self, ctx: commands.Context):
+    async def _list_extensions(self, ctx: commands.Context):
         """List extensions to R6Pugs."""
         packages = pkgutil.iter_modules(extensions.__path__)
         loaded = await self.conf.loaded_extensions()
         names = []
         for _, modname, ispkg in packages:
-            if not ispkg:
+            if ispkg and modname not in loaded:
                 names.append(modname)
-        if loaded:
-            await ctx.send(box("Loaded extensions:\n{}"
-                               "".format(", ".join(loaded))))
-        if names:
-            await ctx.send(box("Available extensions:\n{}"
-                               "".format(", ".join(names))))
-        if not names or loaded:
+        if names or loaded:
+            if loaded:
+                await ctx.send(box("Loaded extensions:\n{}"
+                                   "".format(", ".join(loaded))))
+            if names:
+                await ctx.send(box("Available extensions:\n{}"
+                                   "".format(", ".join(names))))
+        else:
             await ctx.send("There are no extensions available.")
 
     def get_pug(self, channel: discord.TextChannel):
@@ -311,3 +325,20 @@ class R6Pugs:
         pug = self.get_pug(channel)
         if pug is not None and pug in self.pugs:
             pug.end()
+
+def get_extension(extension: str):
+    """Get a package in the `.extensions` folder."""
+    packages = pkgutil.iter_modules(extensions.__path__)
+    module = None
+    for finder, module_name, _ in packages:
+        if extension == module_name:
+            spec = finder.find_spec(extension)
+            if spec:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                break
+    else:
+        raise ExtensionNotFound(extension)
+    if not hasattr(module, "setup") or not callable(module.setup):
+        raise InvalidExtension(extension)
+    return module
