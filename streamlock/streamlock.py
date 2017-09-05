@@ -253,9 +253,7 @@ class StreamLock:
         if resp.status == 400:
             raise InvalidToken()
         elif resp.status == 404:
-            raise StreamNotFound(stream_id)
-        else:
-            raise APIError()
+            raise StreamNotFound("The stream with ID {} was not found.".format(stream_id))
 
     def _get_twitch_headers(self):
         return {
