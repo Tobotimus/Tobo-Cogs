@@ -134,9 +134,15 @@ class Pug:
         if len(self.queue) < 10:
             return
         await self.ctx.send("The match will start soon!")
-        teams = await self.run_team_selection()
-        map_ = await self.run_map_selection(teams)
-        self.match = PugMatch(self.ctx, teams, map_)
+        try:
+            teams = await self.run_team_selection()
+            map_ = await self.run_map_selection(teams)
+            self.match = PugMatch(self.ctx, teams, map_)
+        except:
+            self.match_running = False
+            await self.ctx.send("Something went wrong whilst trying to start the match...")
+            if len(self.queue) >= 10:
+                self.ctx.bot.dispatch("tenth_player", self)
 
     async def run_captains_pick(self):
         """Get captains to pick the members for each team."""
