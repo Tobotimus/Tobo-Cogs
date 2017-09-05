@@ -6,6 +6,7 @@ from discord.ext import commands
 from .reactionmenus import (ConfirmationMenu, SingleSelectionMenu, PollMenu,
                             TurnBasedVetoMenu, TurnBasedSelectionMenu)
 from .match import PugMatch
+from .log import LOG
 
 MAP_POOLS = {
     "All Maps": ["Bank", "Bartlett U.", "Border",
@@ -43,6 +44,7 @@ class Pug:
         n_members = len(self.queue)
         self.ctx.bot.dispatch("pug_member_join", member, self)
         if n_members >= 10 and not self.match_running:
+            LOG.debug("10th player joined PUG")
             self.ctx.bot.dispatch("tenth_player", self)
         return n_members
 
@@ -107,6 +109,7 @@ class Pug:
         """
         if len(self.queue) < 10:
             return
+        LOG.debug("Readying up")
         ctx = self.ctx
         players = self.queue[:10]
         await ctx.send("{} it is time to ready up for the PuG!"
@@ -147,7 +150,7 @@ class Pug:
             players.remove(cap)
         options = {u.display_name: u for u in players}
         ctx = self.ctx
-        menu = TurnBasedSelectionMenu(ctx.channel, ctx.bot, captains,
+        menu = TurnBasedSelectionMenu(ctx.bot, ctx.channel, captains,
                                       list(options.keys()),
                                       title="Captains pick teams",
                                       option_name="a player",
@@ -158,6 +161,7 @@ class Pug:
         """Get random teams for this PuG."""
         if len(self.queue) < 10:
             return
+        await self.ctx.send("The teams are being randomised...")
         players = self.queue[:10]
         random.shuffle(players)
         teams = (
@@ -170,7 +174,7 @@ class Pug:
         """Run a map veto with this PuG's map pool."""
         captains = [team[0] for team in teams]
         ctx = self.ctx
-        menu = TurnBasedVetoMenu(ctx.channel, ctx.bot, captains,
+        menu = TurnBasedVetoMenu(ctx.bot, ctx.channel, captains,
                                  self.settings["maps"],
                                  title="Captains Veto Maps",
                                  option_name="a map",
@@ -179,9 +183,12 @@ class Pug:
 
     async def run_map_vote(self, teams: Tuple[List[discord.Member]]):
         """Run a map vote with this PuG's map pool."""
-        players = [p for p in team for team in teams]
+        players = []
+        for team in teams:
+            for player in team:
+                players.append(player)
         ctx = self.ctx
-        menu = PollMenu(ctx.channel, ctx.bot, players,
+        menu = PollMenu(ctx.bot, ctx.channel, players,
                         self.settings["maps"],
                         title="Vote For Maps",
                         option_name="a map",

@@ -20,12 +20,12 @@ class PugMatch:
         embed = discord.Embed(title="Match Summary",
                               description=self.ctx.channel.mention)
         embed.add_field(name="Map", value=self.map, inline=False)
-        embed.add_field(name="Blue Team", value=box(self._team_str(0)))
-        embed.add_field(name="Orange Team", value=box(self._team_str(1)))
+        embed.add_field(name="Blue Team", value=self._team_str(0))
+        embed.add_field(name="Orange Team", value=self._team_str(1))
         if any(l for l in self.scores):
             score = None
             if self._scores_settled():
-                score = " - ".join(self.get_score())
+                score = " - ".join(map(str, self.get_score()))
             else:
                 score = ("Still waiting on a player from each"
                          " team to enter a matching score.")
