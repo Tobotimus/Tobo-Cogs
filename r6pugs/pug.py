@@ -9,11 +9,11 @@ from .match import PugMatch
 from .log import LOG
 
 MAP_POOLS = {
-    "All Maps": ["Bank", "Bartlett U.", "Border",
-                 "Chalet", "Club House", "Coastline",
-                 "Consulate", "Favelas", "Hereford Base",
-                 "House", "Kafe Dostoyevsky", "Kanal",
-                 "Oregon", "Plane", "Skyscraper", "Yacht"],
+    "All Maps": ["Bank", "Bartlett U.", "Border", "Chalet",
+                 "Club House", "Coastline", "Consulate",
+                 "Favelas", "Hereford Base", "House",
+                 "Kafe Dostoyevsky", "Kanal", "Oregon",
+                 "Plane", "Skyscraper", "Theme Park", "Yacht"],
     "ESL Maps": ["Bank", "Border", "Chalet",
                  "Club House", "Coastline", "Consulate",
                  "Kafe Dostoyevsky", "Oregon", "Skyscraper"]
