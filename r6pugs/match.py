@@ -29,7 +29,7 @@ class PugMatch:
             else:
                 score = ("Still waiting on a player from each"
                          " team to enter a matching score.")
-            embed.add_field(name="Score", value=score)
+            embed.add_field(name="Score", value=score, inline=False)
         await self.ctx.send(embed=embed)
 
     def _team_str(self, team_idx: int):
