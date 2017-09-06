@@ -279,16 +279,20 @@ class R6Pugs:
         """
         LOG.debug("Event running for 10th player")
         pug.match_running = True
-        while len(pug.queue) >= 10:
-            success = await pug.ready_up()
-            if success:
-                await pug.run_match()
-                break
-        else:
-            pug.match_running = False
-            await pug.ctx.send("{} more player{} needed to start the match!"
-                               "".format(10 - len(pug.queue),
-                                         "s are" if len(pug.queue) != 9 else " is"))
+        kicked_players = await pug.ready_up()
+        if kicked_players:
+            while len(pug.queue) >= 10:
+                kicked_players = await pug.refill(len(kicked_players))
+                if not kicked_players:
+                    break
+            else:
+                pug.match_running = False
+                needed = 10 - len(pug.queue)
+                plural = " is" if needed == 1 else "s are"
+                await pug.ctx.send("{} more player{} needed to start the match!"
+                                   "".format(needed, plural))
+                return
+        await pug.run_match()
 
     async def on_pug_match_start(self, match: PugMatch):
         """Fires when a PUG match starts."""

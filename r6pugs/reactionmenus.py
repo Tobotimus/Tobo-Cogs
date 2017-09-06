@@ -235,7 +235,8 @@ class _TurnBasedMenu(_OptionMenu):
         self.remainder = dict(zip(self.emojis, self.options))
 
     async def take_turns(self, iterations: int, callback, *,
-                         double_turns: bool = False):
+                         double_turns: bool = False,
+                         action: str = "select"):
         """Take turns picking options and then doing whatever the `callback` is."""
         cur_turn = 0
         turns_left = 1
@@ -246,7 +247,7 @@ class _TurnBasedMenu(_OptionMenu):
             if len(self.remainder) == 1:
                 await callback(next(iter(self.remainder.keys())), selector)
                 break
-            await self._update_footer(selector)
+            await self._update_footer(selector, action)
             response = await self._get_response(selector, list(self.remainder.keys()))
             await callback(*response)
             if turns_left == 0:
@@ -256,10 +257,10 @@ class _TurnBasedMenu(_OptionMenu):
                 else:
                     turns_left = 1
 
-    async def _update_footer(self, selector: discord.Member):
+    async def _update_footer(self, selector: discord.Member, action: str = "select"):
         embed = self.message.embeds[0]
-        embed.set_footer(text=("{0.display_name}'s turn to select {1}."
-                               "".format(selector, self.option_name)))
+        embed.set_footer(text=("{0.display_name}'s turn to {1} {2}."
+                               "".format(selector, action, self.option_name)))
         await self.message.edit(embed=embed)
 
     async def _get_response(self, selector: discord.Member,
@@ -335,11 +336,11 @@ class TurnBasedVetoMenu(_TurnBasedMenu):
     async def _run_veto(self) -> List[str]:
         iterations = len(self.emojis) - self.n_picks
         iterations -= iterations % 2
-        await self.take_turns(iterations, self.veto)
+        await self.take_turns(iterations, self.veto, action="veto")
 
     async def _run_picks(self):
         iterations = self.n_picks
-        await self.take_turns(iterations, self.pick)
+        await self.take_turns(iterations, self.pick, action="pick")
         if self.n_picks > 0 and self.remainder:
             await self.pick(next(iter(self.remainder.keys())))
 
