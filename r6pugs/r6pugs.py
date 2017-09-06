@@ -46,7 +46,7 @@ class R6Pugs:
             await ctx.bot.send_cmd_help(ctx)
 
     @pug.command(name="start")
-    async def pug_start(self, ctx: commands.Context):
+    async def _pug_start(self, ctx: commands.Context):
         """Start a new PUG.
 
         A temporary channel will be created to house the PUG."""
@@ -60,7 +60,7 @@ class R6Pugs:
 
     @pug.command(name="stop")
     @pug_starter_or_permissions(manage_messages=True)
-    async def pug_stop(self, ctx: commands.Context, channel: discord.TextChannel=None):
+    async def _pug_stop(self, ctx: commands.Context, channel: discord.TextChannel=None):
         """Stop an ongoing PUG.
 
         If no channel is specified, it will try to end the PUG in this channel."""
@@ -74,9 +74,8 @@ class R6Pugs:
 
     @pug.command(name="kick")
     @checks.mod_or_permissions(kick_members=True)
-    @pug_starter_or_permissions(manage_messages=True)
-    async def pug_kick(self, ctx: commands.Context, member: discord.Member,
-                       channel: discord.TextChannel=None):
+    async def _pug_kick(self, ctx: commands.Context, member: discord.Member,
+                        channel: discord.TextChannel=None):
         """Kick a member from an ongoing PUG.
 
         If no channel is specified, it will try to use the PUG in this channel."""
@@ -94,7 +93,7 @@ class R6Pugs:
         await ctx.send("*{0.display_name}* is not in that PUG.")
 
     @pug.command(name="join")
-    async def pug_join(self, ctx: commands.Context, channel: discord.TextChannel=None):
+    async def _pug_join(self, ctx: commands.Context, channel: discord.TextChannel=None):
         """Join a PUG.
 
         If no channel is specified, it tries to join the PUG in the current channel."""
@@ -115,7 +114,7 @@ class R6Pugs:
             await ctx.send("Done.")
 
     @pug.command(name="leave")
-    async def pug_leave(self, ctx: commands.Context, channel: discord.TextChannel=None):
+    async def _pug_leave(self, ctx: commands.Context, channel: discord.TextChannel=None):
         """Leave a PUG.
 
         If no channel is specified, it tries to leave the PUG in the current channel."""
@@ -132,7 +131,7 @@ class R6Pugs:
         await ctx.send("Done.")
 
     @pug.command(name="submit")
-    async def pug_submit(self, ctx: commands.Context, your_score: int, their_score: int):
+    async def _pug_submit(self, ctx: commands.Context, your_score: int, their_score: int):
         """Submit scores for a PUG match."""
         pug = self.get_pug(ctx.channel)
         if pug is None:
@@ -161,7 +160,7 @@ class R6Pugs:
 
     @pugext.command(name="load")
     @checks.is_owner()
-    async def pugext_load(self, ctx: commands.Context, extension: str):
+    async def _pugext_load(self, ctx: commands.Context, extension: str):
         """Load an extension for R6Pugs."""
         try:
             spec = get_spec(extension)
@@ -182,7 +181,7 @@ class R6Pugs:
                 await ctx.send("Done.")
 
     @pugext.command(name="unload")
-    async def pugext_unload(self, ctx: commands.Context, extension: str):
+    async def _pugext_unload(self, ctx: commands.Context, extension: str):
         """Unload an extension for R6Pugs."""
         loaded = await self.conf.loaded_extensions()
         if extension in loaded:
@@ -192,6 +191,16 @@ class R6Pugs:
             await ctx.send("Done.")
         else:
             await ctx.send("That extension is not loaded.")
+
+    @pugext.command(name="reload")
+    async def _pugext_reload(self, ctx: commands.Context, extension: str):
+        """Reload an extension."""
+        ctx.bot.unload_extension(extension)
+        core = ctx.bot.get_cog("Core")
+        if core is None:
+            return
+        core.cleanup_and_refresh_modules(extension)
+        await ctx.invoke(self._pugext_load, extension)
 
     async def _list_extensions(self, ctx: commands.Context):
         """List extensions to R6Pugs."""
