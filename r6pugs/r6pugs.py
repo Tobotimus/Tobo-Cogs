@@ -1,15 +1,14 @@
 """Module for R6Pugs cog."""
 import pkgutil
-import importlib
 import discord
 from discord.ext import commands
-from core import Config
-from core import checks
+from core import Config, checks
+from core.bot import Red
 from core.utils.chat_formatting import box
 from .log import LOG
 from .pug import Pug
 from .match import PugMatch
-from .errors import Forbidden, ExtensionNotFound, InvalidExtension
+from .errors import Forbidden, ExtensionNotFound
 from . import extensions
 
 UNIQUE_ID = 0x315e5521
@@ -32,10 +31,12 @@ def pug_starter_or_permissions(**perms):
 class R6Pugs:
     """Cog to run PUGs for Rainbow Six."""
 
-    def __init__(self):
+    def __init__(self, bot: Red):
         self.pugs = []
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_global(loaded_extensions=[])
+        self.bot = bot
+        bot.loop.create_task(load_extensions(bot, self.conf))
 
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
@@ -150,26 +151,47 @@ class R6Pugs:
         match.submit_score((your_score, their_score), ctx.author)
         await ctx.send("Score has been submitted.")
 
-    @commands.command()
-    @checks.is_owner()
-    async def pugext(self, ctx: commands.Context, extension: str = None):
-        """Toggle extensions for R6Pugs."""
-        if extension is None:
+    @commands.group()
+    async def pugext(self, ctx: commands.Context):
+        """Manage extensions to R6Pugs."""
+        if not ctx.invoked_subcommand:
             await ctx.bot.send_cmd_help(ctx)
             await self._list_extensions(ctx)
             return
-        loaded = await self.conf.loaded_extensions()
+
+    @pugext.command(name="load")
+    @checks.is_owner()
+    async def pugext_load(self, ctx: commands.Context, extension: str):
+        """Load an extension for R6Pugs."""
         try:
-            module = get_extension(extension)
+            spec = get_spec(extension)
         except ExtensionNotFound:
             await ctx.send("That extension does not exist.")
-        except InvalidExtension:
-            await ctx.send("That extension is invalid.")
         else:
-            module.setup(ctx.bot)
-            loaded.append(module.__name__)
+            try:
+                ctx.bot.load_extension(spec)
+            except Exception as err:
+                LOG.exception("Package loading failed", exc_info=err)
+                await ctx.send("Failed to load extension. Check your console or"
+                               " logs for details.")
+            else:
+                loaded = await self.conf.loaded_extensions()
+                if extension not in loaded:
+                    loaded.append(extension)
+                    await self.conf.loaded_extensions.set(loaded)
+                await ctx.send("Done.")
+
+    @pugext.command(name="unload")
+    async def pugext_unload(self, ctx: commands.Context, extension: str):
+        """Unload an extension for R6Pugs."""
+        loaded = await self.conf.loaded_extensions()
+        if extension in loaded:
+            ctx.bot.unload_extension(extension)
+            loaded.remove(extension)
             await self.conf.loaded_extensions.set(loaded)
             await ctx.send("Done.")
+        else:
+            await ctx.send("That extension is not loaded.")
 
     async def _list_extensions(self, ctx: commands.Context):
         """List extensions to R6Pugs."""
@@ -330,19 +352,38 @@ class R6Pugs:
         if pug is not None and pug in self.pugs:
             pug.end()
 
-def get_extension(extension: str):
-    """Get a package in the `.extensions` folder."""
+    def __unload(self):
+        self.bot.loop.create_task(unload_extensions(self.bot, self.conf))
+
+async def load_extensions(bot: Red, conf: Config):
+    """Load extensions in the `conf.loaded_extensions` list."""
+    loaded = await conf.loaded_extensions()
+    for extension in loaded:
+        spec = get_spec(extension)
+        if spec is None:
+            loaded.remove(extension)
+            continue
+        try:
+            bot.load_extension(spec)
+        except Exception as err:
+            LOG.exception("Package loading failed", exc_info=err)
+            loaded.remove(extension)
+    await conf.loaded_extensions.set(loaded)
+
+async def unload_extensions(bot: Red, conf: Config):
+    """Unload extensions in the `conf.loaded_extensions` list."""
+    loaded = await conf.loaded_extensions()
+    for extension in loaded:
+        bot.unload_extension(extension)
+
+def get_spec(extension: str):
+    """Get the spec for a package in the `.extensions` folder."""
     packages = pkgutil.iter_modules(extensions.__path__)
-    module = None
+    spec = None
     for finder, module_name, _ in packages:
         if extension == module_name:
             spec = finder.find_spec(extension)
-            if spec:
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                break
+            break
     else:
         raise ExtensionNotFound(extension)
-    if not hasattr(module, "setup") or not callable(module.setup):
-        raise InvalidExtension(extension)
-    return module
+    return spec
