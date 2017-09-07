@@ -41,21 +41,24 @@ class Pug:
         if member in self.queue:
             return False
         self.queue.append(member)
-        n_members = len(self.queue)
         self.ctx.bot.dispatch("pug_member_join", member, self)
-        if n_members >= 10 and not self.match_running:
-            LOG.debug("10th player joined PUG")
-            self.ctx.bot.dispatch("tenth_player", self)
-        return n_members
+        self.check_tenth_player()
+        return len(self.queue)
 
     def remove_member(self, member: discord.Member):
         """Remove a member from this PuG."""
         if member not in self.queue:
             return False
         self.queue.remove(member)
-        n_members = len(self.queue)
         self.ctx.bot.dispatch("pug_member_remove", member, self)
-        return n_members
+        return len(self.queue)
+
+    def check_tenth_player(self):
+        """Check if 10 players have joined a match and,
+        if the match hasn't started yet, start it.
+        """
+        if len(self.queue) >= 10 and not self.match_running:
+            self.ctx.bot.dispatch("tenth_player", self)
 
     async def run_initial_setup(self):
         """Set up the PuG and get its settings."""
@@ -155,11 +158,6 @@ class Pug:
         teams = await self.run_team_selection()
         map_ = await self.run_map_selection(teams)
         self.match = PugMatch(self.ctx, teams, map_)
-        # except:
-        #     self.match_running = False
-        #     await self.ctx.send("Something went wrong whilst trying to start the match...")
-        #     if len(self.queue) >= 10:
-        #         self.ctx.bot.dispatch("tenth_player", self)
 
     async def run_captains_pick(self):
         """Get captains to pick the members for each team."""

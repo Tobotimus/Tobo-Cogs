@@ -16,8 +16,8 @@ def pug_has_voice_channels(func):
     there are voice channels for the pug being passed in.
     """
     async def _decorated(cog, *args, **kwargs):
-        pug = next(arg for arg in args if isinstance(arg, Pug))
-        if pug not in cog.channels:
+        pug = next((arg for arg in args if isinstance(arg, Pug)), None)
+        if pug is None or pug not in cog.channels:
             return
         await func(cog, *args, **kwargs)
     return _decorated
@@ -27,11 +27,13 @@ def match_has_voice_channels(func):
     if there are voice channels for it.
     """
     async def _decorated(cog, *args, **kwargs):
-        match = next(arg for arg in args if isinstance(arg, PugMatch))
+        match = next((arg for arg in args if isinstance(arg, PugMatch)), None)
+        if match is None:
+            return
         args = list(args)
         args.remove(match)
         pug = match.ctx.cog.get_pug(match.ctx.channel)
-        if pug not in cog.channels:
+        if pug is None or pug not in cog.channels:
             return
         await func(cog, match, pug, *args, **kwargs)
     return _decorated
@@ -84,6 +86,7 @@ class PugVoice:
         """Fires when a PUG ends and deletes its voice channels."""
         for channel in self.channels[pug].values():
             await channel.delete(reason="Deleting temporary PUG channel")
+        self.channels.pop(pug)
 
     @pug_has_voice_channels
     async def on_pug_member_join(self, member: discord.Member, pug: Pug):

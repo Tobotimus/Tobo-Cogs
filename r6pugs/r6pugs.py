@@ -339,6 +339,12 @@ class R6Pugs:
         await ctx.send("The match has ended.")
         await match.send_summary()
         pug = self.get_pug(ctx.channel)
+        if len(pug.queue) >= 10:
+            await ctx.send("There will now be a 1 minute break before the next match starts.")
+            def _allow_match(pug: Pug):
+                pug.match_running = False
+            ctx.bot.loop.call_later(58, _allow_match, pug)
+            ctx.bot.loop.call_later(60, pug.check_tenth_player)
         losing_score = min(score for score in match.final_score)
         losing_team_idx = match.final_score.index(losing_score)
         losing_team = match.teams[losing_team_idx]
@@ -348,8 +354,6 @@ class R6Pugs:
                            "".format(ctx.prefix, ctx.channel.name))
             for player in losing_team:
                 pug.remove_member(player)
-            if len(pug.queue) >= 10:
-                ctx.bot.dispatch("tenth_player", pug)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
         """Fires when a text channel is deleted and ends any PUGs which it may
