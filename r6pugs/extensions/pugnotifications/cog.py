@@ -172,7 +172,7 @@ class PugNotifications:
                 continue # Some weird bug with config
             if settings["online_sub"]:
                 member = guild.get_member(int(member_id))
-                if member is not None:
+                if member is not None and _is_online(member):
                     await member.add_roles(role)
                     loop.call_later(later, loop.create_task, member.remove_roles(role))
                     later += 2
@@ -184,3 +184,8 @@ class PugNotifications:
         if role_id is None:
             return
         return next((r for r in guild.roles if r.id == role_id), None)
+
+def _is_online(member: discord.Member):
+    statuses = (discord.Status.online,
+                discord.Status.idle)
+    return member.status in statuses
