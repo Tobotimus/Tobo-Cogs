@@ -9,15 +9,26 @@ _TEAM_CHANNEL_NAME = "\N{Dog} Pug {0} {1}"
 _BLUE = "\N{Large Blue Diamond}"
 _ORANGE = "\N{Large Orange Diamond}"
 
-# decorator
+# decorators
 def pug_has_voice_channels(func):
     """Decorator which makes sure the function only runs if
-    there are voice channel for it.
+    there are voice channels for the pug being passed in.
     """
     def _decorated(cog, pug: Pug, *args, **kwargs):
         if pug not in cog.channels:
             return
         func(cog, pug, *args, **kwargs)
+    return _decorated
+
+def match_has_voice_channels(func):
+    """Decorator which gets the pug for the match and passes it in,
+    if there are voice channels for it.
+    """
+    def _decorated(cog, match: PugMatch, *args, **kwargs):
+        pug = match.ctx.cog.get_pug(match.channel)
+        if pug not in cog.channels:
+            return
+        func(cog, match, pug, *args, **kwargs)
     return _decorated
 
 class PugVoice:
@@ -76,12 +87,11 @@ class PugVoice:
         await blue.set_permissions(member, overwrite=None)
         await orange.set_permissions(member, overwrite=None)
 
-    @pug_has_voice_channels
-    async def on_pug_match_start(self, match: PugMatch):
+    @match_has_voice_channels
+    async def on_pug_match_start(self, match: PugMatch, pug: Pug = None):
         """Fires when a match starts and allows the players access to their
         voice channels, before moving them in.
         """
-        pug = match.ctx.cog.get_pug(match.channel)
         channels = self.channels[pug]
         channels = (channels.get("blue"), channels.get("orange"))
         for team, channel in zip(match.teams, channels):
@@ -89,12 +99,11 @@ class PugVoice:
                 await channel.set_permissions(player, connect=True)
                 await player.move_to(channel)
 
-    @pug_has_voice_channels
-    async def on_pug_match_end(self, match: PugMatch):
+    @match_has_voice_channels
+    async def on_pug_match_end(self, match: PugMatch, pug: Pug = None):
         """Fires when a match ends and denies the players access to their
         voice channels, after moving them to the lobby.
         """
-        pug = match.ctx.cog.get_pug(match.channel)
         channels = self.channels[pug]
         lobby = channels.get("lobby")
         channels = (channels.get("blue"), channels.get("orange"))
