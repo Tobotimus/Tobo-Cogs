@@ -1,8 +1,8 @@
 """Cog for testing this package."""
 import discord
 from discord.ext import commands
-from r6pugs.reactionmenus import (TurnBasedVetoMenu, TurnBasedSelectionMenu,
-                                  PollMenu, ConfirmationMenu, SingleSelectionMenu)
+from r6pugs import (TurnBasedVetoMenu, TurnBasedSelectionMenu,
+                    PollMenu, ConfirmationMenu, SingleSelectionMenu)
 
 class PugTests:
     """Cog for testing R6Pugs."""

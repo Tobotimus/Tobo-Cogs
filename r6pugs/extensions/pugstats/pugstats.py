@@ -1,8 +1,7 @@
 """Module for PugStats cog."""
 import discord
 from core import Config
-from r6pugs.r6pugs import UNIQUE_ID
-from r6pugs.match import PugMatch
+from r6pugs import UNIQUE_ID, PugMatch
 
 class PugStats:
     """An addon for R6Pugs which keeps track of stats for

@@ -1,8 +1,7 @@
 """Module for PugVoice cog."""
 import re
 import discord
-from r6pugs.pug import Pug
-from r6pugs.match import PugMatch
+from r6pugs import Pug, PugMatch
 
 _HEADER_CHANNEL = "----------------------"
 _LOBBY_NAME = "\N{Dog Face} Pug {0} - Lobby"
