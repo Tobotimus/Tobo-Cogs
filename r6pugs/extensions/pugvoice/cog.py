@@ -1,4 +1,5 @@
 """Module for PugVoice cog."""
+import re
 import discord
 from r6pugs.pug import Pug
 from r6pugs.match import PugMatch
@@ -14,21 +15,25 @@ def pug_has_voice_channels(func):
     """Decorator which makes sure the function only runs if
     there are voice channels for the pug being passed in.
     """
-    def _decorated(cog, pug: Pug, *args, **kwargs):
+    async def _decorated(cog, *args, **kwargs):
+        pug = next(arg for arg in args if isinstance(arg, Pug))
         if pug not in cog.channels:
             return
-        func(cog, pug, *args, **kwargs)
+        await func(cog, *args, **kwargs)
     return _decorated
 
 def match_has_voice_channels(func):
     """Decorator which gets the pug for the match and passes it in,
     if there are voice channels for it.
     """
-    def _decorated(cog, match: PugMatch, *args, **kwargs):
-        pug = match.ctx.cog.get_pug(match.channel)
+    async def _decorated(cog, *args, **kwargs):
+        match = next(arg for arg in args if isinstance(arg, PugMatch))
+        args = list(args)
+        args.remove(match)
+        pug = match.ctx.cog.get_pug(match.ctx.channel)
         if pug not in cog.channels:
             return
-        func(cog, match, pug, *args, **kwargs)
+        await func(cog, match, pug, *args, **kwargs)
     return _decorated
 
 class PugVoice:
@@ -39,7 +44,10 @@ class PugVoice:
 
     async def on_pug_start(self, pug: Pug):
         """Fires when a PUG starts and creates new voice channels for it."""
-        pug_n = int(pug.channel.name.strip(r'[a-zA-Z]\-'))
+        pug_n = re.findall(r'\d+', pug.ctx.channel.name)
+        if not pug_n:
+            return
+        pug_n = int(pug_n.pop())
         guild = pug.ctx.guild
         deny_connect = {
             guild.default_role: discord.PermissionOverwrite(connect=False)
@@ -48,8 +56,12 @@ class PugVoice:
                                                   overwrites=deny_connect,
                                                   reason="Header for PUG voice channels")
 
+        allow_starter = {
+            pug.ctx.author: discord.PermissionOverwrite(connect=True)
+        }
+        allow_starter.update(deny_connect)
         lobby = await guild.create_voice_channel(_LOBBY_NAME.format(pug_n),
-                                                 overwrites=deny_connect,
+                                                 overwrites=allow_starter,
                                                  reason="Lobby for PUG")
 
         blue = await guild.create_voice_channel(_TEAM_CHANNEL_NAME.format(pug_n, _BLUE),
@@ -60,7 +72,12 @@ class PugVoice:
                                                   overwrites=deny_connect,
                                                   reason="Team channel for PUG")
 
-        self.channels[pug] = {var.__name__: var for var in (header, lobby, blue, orange)}
+        self.channels[pug] = {
+            "header": header,
+            "lobby": lobby,
+            "blue": blue,
+            "orange": orange
+        }
 
     @pug_has_voice_channels
     async def on_pug_end(self, pug: Pug):
@@ -69,13 +86,13 @@ class PugVoice:
             await channel.delete(reason="Deleting temporary PUG channel")
 
     @pug_has_voice_channels
-    async def on_pug_member_join(self, pug: Pug, member: discord.Member):
+    async def on_pug_member_join(self, member: discord.Member, pug: Pug):
         """Fires when a member joins a PUG and allows them access to the lobby."""
         lobby = self.channels[pug].get("lobby")
         await lobby.set_permissions(member, connect=True)
 
     @pug_has_voice_channels
-    async def on_pug_member_leave(self, pug: Pug, member: discord.Member):
+    async def on_pug_member_remove(self, member: discord.Member, pug: Pug):
         """Fires when a member joins a PUG and denies them access to the lobby
         (and team channels).
         """
