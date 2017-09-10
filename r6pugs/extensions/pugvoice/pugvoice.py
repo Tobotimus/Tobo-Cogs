@@ -50,27 +50,37 @@ class PugVoice:
             return
         pug_n = int(pug_n.pop())
         guild = pug.ctx.guild
-        deny_connect = {
-            guild.default_role: discord.PermissionOverwrite(connect=False)
+        bot_settings = pug.ctx.bot.db.guild(guild)
+        mod_role = discord.utils.get(guild.roles, id=await bot_settings.mod_role())
+        admin_role = discord.utils.get(guild.roles, id=await bot_settings.admin_role())
+        def_overwrite = {
+            guild.default_role: discord.PermissionOverwrite(connect=False),
+            guild.me: discord.PermissionOverwrite(manage_channels=True),
         }
+        if mod_role is not None:
+            def_overwrite[mod_role] = discord.PermissionOverwrite(
+                connect=True,
+                manage_channels=True if mod_role.permissions.manage_channels else None)
+        if admin_role is not None:
+            def_overwrite[admin_role] = discord.PermissionOverwrite(manage_channels=True)
         header = await guild.create_voice_channel(_HEADER_CHANNEL,
-                                                  overwrites=deny_connect,
+                                                  overwrites=def_overwrite,
                                                   reason="Header for PUG voice channels")
 
         allow_starter = {
             pug.ctx.author: discord.PermissionOverwrite(connect=True)
         }
-        allow_starter.update(deny_connect)
+        allow_starter.update(def_overwrite)
         lobby = await guild.create_voice_channel(_LOBBY_NAME.format(pug_n),
                                                  overwrites=allow_starter,
                                                  reason="Lobby for PUG")
 
         blue = await guild.create_voice_channel(_TEAM_CHANNEL_NAME.format(pug_n, _BLUE),
-                                                overwrites=deny_connect,
+                                                overwrites=def_overwrite,
                                                 reason="Team channel for PUG")
 
         orange = await guild.create_voice_channel(_TEAM_CHANNEL_NAME.format(pug_n, _ORANGE),
-                                                  overwrites=deny_connect,
+                                                  overwrites=def_overwrite,
                                                   reason="Team channel for PUG")
 
         self.channels[pug] = {
