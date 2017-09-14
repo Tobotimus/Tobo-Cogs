@@ -1,6 +1,7 @@
 """Module for WelcomeCount Cog."""
 import datetime
 import os
+from copy import deepcopy
 import discord
 from discord.ext import commands
 from cogs.utils import checks
@@ -39,9 +40,8 @@ class WelcomeCount:
         """Change settings for WelcomeCount."""
         if not ctx.invoked_subcommand:
             await self.bot.send_cmd_help(ctx)
-            server = ctx.message.server
             channel = ctx.message.channel
-            channel_settings = self._get_settings(server, channel)
+            channel_settings = self._load(channel=channel)
             if channel_settings["ENABLED"]:
                 await self.bot.say(
                     box("Enabled in this channel.\n"
@@ -52,15 +52,12 @@ class WelcomeCount:
     @wcount.command(pass_context=True, no_pm=True)
     async def toggle(self, ctx: commands.Context):
         """Enable/disable welcome messages in this channel."""
-        server = ctx.message.server
         channel = ctx.message.channel
-        server_settings = self._get_settings(server)
-        channel_settings = self._get_settings(server, channel)
-        channel_settings["ENABLED"] = not channel_settings["ENABLED"]
-        server_settings["CHANNELS"][channel.id] = channel_settings
-        self._save_settings(server, server_settings)
+        settings = self._load(channel=channel)
+        settings["ENABLED"] = not settings["ENABLED"]
+        self._save(settings, channel=channel)
         await self.bot.say("Welcome messages are now {0} in this channel."
-                           "".format("enabled" if channel_settings["ENABLED"] else "disabled"))
+                           "".format("enabled" if settings["ENABLED"] else "disabled"))
 
     @wcount.command(pass_context=True, no_pm=True)
     async def message(self, ctx: commands.Context, *, message: str):
@@ -77,11 +74,10 @@ class WelcomeCount:
         """
         server = ctx.message.server
         channel = ctx.message.channel
-        server_settings = self._get_settings(server)
-        channel_settings = self._get_settings(server, channel)
+        server_settings = self._load(server=server)
+        channel_settings = self._load(channel=channel)
         channel_settings["MESSAGE"] = message
-        server_settings["CHANNELS"][channel.id] = channel_settings
-        self._save_settings(server, server_settings)
+        self._save(channel_settings, channel=channel)
         member = ctx.message.author
         count = server_settings["COUNT"]
         params = {
@@ -97,7 +93,7 @@ class WelcomeCount:
     async def on_member_join(self, member: discord.Member):
         """Send the welcome message and update the last message."""
         server = member.server
-        server_settings = self._get_settings(server)
+        server_settings = self._load(server=server)
         today = datetime.date.today()
         if server_settings["DAY"] == str(today):
             server_settings["COUNT"] += 1
@@ -110,7 +106,7 @@ class WelcomeCount:
         count = server_settings["COUNT"]
         last_message = None
         for channel in self._get_welcome_channels(server):
-            channel_settings = self._get_settings(server, channel)
+            channel_settings = self._load(channel=channel)
             last_message = channel_settings.get("LAST_MESSAGE")
             if last_message is not None:
                 await self.bot.purge_from(channel, check=lambda m: m.id == last_message)
@@ -124,25 +120,39 @@ class WelcomeCount:
             welcome_msg = channel_settings["MESSAGE"].format(**params)
             msg = await self.bot.send_message(channel, welcome_msg)
             channel_settings["LAST_MESSAGE"] = msg.id
-            server_settings["CHANNELS"][channel.id] = channel_settings
-        self._save_settings(server, server_settings)
+            self._save(channel_settings, channel=channel)
+        self._save(server_settings, server=server)
 
     def _get_welcome_channels(self, server: discord.Server):
-        settings = self._get_settings(server)
+        settings = self._load(server=server)
         for channel_id in settings["CHANNELS"]:
             if settings["CHANNELS"][channel_id]["ENABLED"]:
                 channel = server.get_channel(channel_id)
                 if channel is not None:
                     yield channel
 
-    def _get_settings(self, server: discord.Server, channel: discord.Channel=None):
-        settings = self.settings.get(server.id, _DEFAULT_SERVER_SETTINGS)
+    def _load(self, *,
+              server: discord.Server=None,
+              channel: discord.Channel=None):
+        if channel is not None and server is None:
+            server = channel.server
+        settings = self.settings.get(server.id, deepcopy(_DEFAULT_SERVER_SETTINGS))
         if channel is not None:
-            return settings["CHANNELS"].get(channel.id, _DEFAULT_CHANNEL_SETTINGS)
-        return self.settings.get(server.id, _DEFAULT_SERVER_SETTINGS)
+            settings = settings["CHANNELS"].get(channel.id, deepcopy(_DEFAULT_CHANNEL_SETTINGS))
+        return settings
 
-    def _save_settings(self, server: discord.Server, settings: dict):
-        self.settings[server.id] = settings
+    def _save(self, settings: dict, *,
+              server: discord.Server=None,
+              channel: discord.Channel=None):
+        if channel is not None and server is None:
+            if server is None:
+                server = channel.server
+            server_settings = self._load(server=server)
+            server_settings["CHANNELS"][channel.id] = settings
+            settings = server_settings
+        if server is not None:
+            print("Saving server %s" % server.id)
+            self.settings[server.id] = settings
         dataIO.save_json(_FILE_PATH, self.settings)
 
 def _check_folders():
