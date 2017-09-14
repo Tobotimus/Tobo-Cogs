@@ -2,9 +2,9 @@
 import pkgutil
 import discord
 from discord.ext import commands
-from core import Config, checks
-from core.bot import Red
-from core.utils.chat_formatting import box
+from redbot.core import Config, checks
+from redbot.core.bot import Red
+from redbot.core.utils.chat_formatting import box
 from .log import LOG
 from .pug import Pug
 from .match import PugMatch
@@ -196,10 +196,10 @@ class R6Pugs:
     async def _pugext_reload(self, ctx: commands.Context, extension: str):
         """Reload an extension."""
         ctx.bot.unload_extension(extension)
-        core = ctx.bot.get_cog("Core")
-        if core is None:
+        core_cog = ctx.bot.get_cog("Core")
+        if core_cog is None:
             return
-        core.cleanup_and_refresh_modules(extension)
+        core_cog.cleanup_and_refresh_modules(extension)
         await ctx.invoke(self._pugext_load, extension)
 
     async def _list_extensions(self, ctx: commands.Context):

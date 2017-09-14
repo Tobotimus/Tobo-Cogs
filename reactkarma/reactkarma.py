@@ -3,9 +3,9 @@ import asyncio
 from collections import namedtuple
 import discord
 from discord.ext import commands
-from core import checks, Config
-from core.bot import Red
-from core.utils.chat_formatting import pagify, box
+from redbot.core import checks, Config
+from redbot.core.bot import Red
+from redbot.core.utils.chat_formatting import pagify, box
 from . import LOG
 
 UNIQUE_ID = 0x9c02dcc7

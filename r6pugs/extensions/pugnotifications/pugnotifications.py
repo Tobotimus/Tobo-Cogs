@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
-from core import Config
+from redbot.core import Config
 from r6pugs import LOG, UNIQUE_ID, Pug
 
 class BadTimeExpr(Exception):

@@ -2,7 +2,7 @@
 from typing import Tuple, List
 import discord
 from discord.ext import commands
-from core.utils.chat_formatting import box
+from redbot.core.utils.chat_formatting import box
 
 class PugMatch:
     """Class to represent a PuG match."""

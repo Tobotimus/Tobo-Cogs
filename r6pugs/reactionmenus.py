@@ -6,7 +6,7 @@ from typing import Tuple, List, Union
 from collections import Counter
 import discord
 from discord.ext import commands
-from core.utils.chat_formatting import box
+from redbot.core.utils.chat_formatting import box
 from .errors import MenuNotSent
 # from .log import LOG
 

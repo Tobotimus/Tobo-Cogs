@@ -1,6 +1,6 @@
 """Module for PugStats cog."""
 import discord
-from core import Config
+from redbot.core import Config
 from r6pugs import UNIQUE_ID, PugMatch
 
 class PugStats:

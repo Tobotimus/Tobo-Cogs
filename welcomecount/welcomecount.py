@@ -2,9 +2,9 @@
 import datetime
 import discord
 from discord.ext import commands
-from core import checks, Config
-from core.bot import Red
-from core.utils.chat_formatting import box
+from redbot.core import checks, Config
+from redbot.core.bot import Red
+from redbot.core.utils.chat_formatting import box
 
 UNIQUE_ID = 0x6f7951a4
 _DEFAULT_WELCOME = ("Welcome, {mention}, to {server}!\n\n"

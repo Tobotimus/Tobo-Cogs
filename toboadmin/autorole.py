@@ -1,7 +1,7 @@
 """Module for Autorole cog."""
 import discord
 from discord.ext import commands
-from core import Config, checks
+from redbot.core import Config, checks
 
 UNIQUE_ID = 0x0bbbbade
 

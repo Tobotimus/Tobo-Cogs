@@ -1,5 +1,5 @@
 """Package for R6Pugs."""
-from core.bot import Red
+from redbot.core.bot import Red
 from .r6pugs import *
 from .errors import *
 from .pug import *

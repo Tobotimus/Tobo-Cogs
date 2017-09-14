@@ -1,5 +1,5 @@
 """Extension for testing R6Pugs."""
-from core.bot import Red
+from redbot.core.bot import Red
 from .pugtests import PugTests
 
 def setup(bot: Red):
