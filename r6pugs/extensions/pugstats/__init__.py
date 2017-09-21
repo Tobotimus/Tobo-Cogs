@@ -1,7 +1,7 @@
 """Stats extension for R6Pugs."""
-from redbot.core.bot import Red
-from .pugstats import PugStats
+from .pugstats import *
 
-def setup(bot: Red):
+
+def setup(bot):
     """Load PugStats"""
     bot.add_cog(PugStats())

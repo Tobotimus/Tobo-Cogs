@@ -1,7 +1,7 @@
 """Extension for testing R6Pugs."""
-from redbot.core.bot import Red
-from .pugtests import PugTests
+from .pugtests import *
 
-def setup(bot: Red):
+
+def setup(bot):
     """Load this extension."""
     bot.add_cog(PugTests())

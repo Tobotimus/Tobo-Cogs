@@ -1,12 +1,11 @@
 """Package for R6Pugs."""
-from redbot.core.bot import Red
 from .r6pugs import *
 from .errors import *
 from .pug import *
 from .match import *
 from .reactionmenus import *
-from .log import LOG
+from .log import *
 
-def setup(bot: Red):
+def setup(bot):
     """Load R6Pugs"""
     bot.add_cog(R6Pugs(bot))

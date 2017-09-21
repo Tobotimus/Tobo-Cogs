@@ -1,10 +1,10 @@
 """
-This extension allows users to stay notified of PUGs starting in\
- various different ways.
+This extension allows users to stay notified of PUGs starting in
+various different ways.
 """
-from redbot.core.bot import Red
-from .pugnotifications import PugNotifications
+from .pugnotifications import *
 
-def setup(bot: Red):
+
+def setup(bot):
     """Load PugNotifications."""
     bot.add_cog(PugNotifications())

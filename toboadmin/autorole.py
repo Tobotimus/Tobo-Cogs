@@ -3,14 +3,17 @@ import discord
 from discord.ext import commands
 from redbot.core import Config, checks
 
+__all__ = ["UNIQUE_ID", "Autorole"]
+
 UNIQUE_ID = 0x0bbbbade
+
 
 class Autorole:
     """Simple cog which can give users a role on join."""
 
     def __init__(self):
-        self.conf = Config.get_conf(self, identifier=UNIQUE_ID,
-                                    force_registration=True)
+        self.conf = Config.get_conf(
+            self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_guild(role=None, enabled=True)
 
     @commands.group()
@@ -21,7 +24,8 @@ class Autorole:
             await ctx.bot.send_cmd_help(ctx)
 
     @autorole.command(name="setrole")
-    async def _autorole_set(self, ctx: commands.Context, *, role: discord.Role):
+    async def _autorole_set(self, ctx: commands.Context, *,
+                            role: discord.Role):
         """Set the role."""
         await self.conf.guild(ctx.guild).role.set(role.id)
         await ctx.send("Done.")

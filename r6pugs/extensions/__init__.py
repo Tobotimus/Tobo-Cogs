@@ -2,4 +2,6 @@
 import sys
 from pathlib import Path
 
+__all__ = []
+
 sys.path.append(str(Path(__file__).parent))

@@ -1,10 +1,7 @@
 """Welcome cog with which counts users who join."""
-import logging
-from redbot.core.bot import Red
-from .welcomecount import WelcomeCount
+from .welcomecount import *
 
-LOGGER = logging.getLogger('red.welcomecount')
 
-def setup(bot: Red):
+def setup(bot):
     """Load welcomecount."""
-    bot.add_cog(WelcomeCount(bot))
+    bot.add_cog(WelcomeCount())

@@ -4,10 +4,16 @@ import discord
 from discord.ext import commands
 from redbot.core.utils.chat_formatting import box
 
+__all__ = ["PugMatch"]
+
+
 class PugMatch:
     """Class to represent a PuG match."""
 
-    def __init__(self, ctx: commands.Context, teams: Tuple[List[discord.Member]], map_: str):
+    def __init__(self,
+                 ctx: commands.Context,
+                 teams: Tuple[List[discord.Member]],
+                 map_: str):
         self.ctx = ctx
         self.teams = teams
         self.map = map_
@@ -17,8 +23,8 @@ class PugMatch:
 
     async def send_summary(self):
         """Send a summary of this PuG match."""
-        embed = discord.Embed(title="Match Summary",
-                              description=self.ctx.channel.mention)
+        embed = discord.Embed(
+            title="Match Summary", description=self.ctx.channel.mention)
         embed.add_field(name="Map", value=self.map, inline=False)
         embed.add_field(name="Blue Team", value=self._team_str(0))
         embed.add_field(name="Orange Team", value=self._team_str(1))

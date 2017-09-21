@@ -11,13 +11,21 @@ from .match import PugMatch
 from .errors import Forbidden, ExtensionNotFound
 from . import extensions
 
+__all__ = [
+    "UNIQUE_ID", "pug_starter_or_permissions", "R6Pugs", "load_extensions",
+    "unload_extensions", "get_spec"
+]
+
 UNIQUE_ID = 0x315e5521
 
-_DELETE_CHANNEL_AFTER = 300 # seconds
+_DELETE_CHANNEL_AFTER = 300  # seconds
+
 
 # Decorator
 def pug_starter_or_permissions(**perms):
-    """Check if a user is authorized to manage a PUG."""
+    """Check decorator which checks if a user is authorized
+    to manage a PUG."""
+
     def _check(ctx: commands.Context):
         pug = ctx.cog.get_pug(ctx.channel)
         if pug is None:
@@ -26,14 +34,17 @@ def pug_starter_or_permissions(**perms):
         if is_starter:
             return True
         return checks.check_permissions(ctx, perms)
+
     return commands.check(_check)
+
 
 class R6Pugs:
     """Cog to run PUGs for Rainbow Six."""
 
     def __init__(self, bot: Red):
         self.pugs = []
-        self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
+        self.conf = Config.get_conf(
+            self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_global(loaded_extensions=[])
         self.bot = bot
         bot.loop.create_task(load_extensions(bot, self.conf))
@@ -56,11 +67,14 @@ class R6Pugs:
         pug = Pug(ctx, temp_channel=True)
         self.pugs.append(pug)
         pug.add_member(ctx.author)
-        await original_channel.send("Pug started in {0.mention}.".format(channel))
+        await original_channel.send(
+            "Pug started in {0.mention}.".format(channel))
 
     @pug.command(name="stop")
     @pug_starter_or_permissions(manage_messages=True)
-    async def _pug_stop(self, ctx: commands.Context, channel: discord.TextChannel=None):
+    async def _pug_stop(self,
+                        ctx: commands.Context,
+                        channel: discord.TextChannel=None):
         """Stop an ongoing PUG.
 
         If no channel is specified, it will try to end the PUG in this channel."""
@@ -68,13 +82,16 @@ class R6Pugs:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
+            await ctx.send(
+                "There is no PUG running in {0.mention}.".format(channel))
             return
         pug.end()
 
     @pug.command(name="kick")
     @checks.mod_or_permissions(kick_members=True)
-    async def _pug_kick(self, ctx: commands.Context, member: discord.Member,
+    async def _pug_kick(self,
+                        ctx: commands.Context,
+                        member: discord.Member,
                         channel: discord.TextChannel=None):
         """Kick a member from an ongoing PUG.
 
@@ -83,17 +100,21 @@ class R6Pugs:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
+            await ctx.send(
+                "There is no PUG running in {0.mention}.".format(channel))
             return
         success = pug.remove_member(member)
         if success is not False:
-            await ctx.send("*{0.display_name}* has been kicked from the PUG in {1.mention}."
-                           "".format(member, channel))
+            await ctx.send(
+                "*{0.display_name}* has been kicked from the PUG in {1.mention}."
+                "".format(member, channel))
             return
         await ctx.send("*{0.display_name}* is not in that PUG.")
 
     @pug.command(name="join")
-    async def _pug_join(self, ctx: commands.Context, channel: discord.TextChannel=None):
+    async def _pug_join(self,
+                        ctx: commands.Context,
+                        channel: discord.TextChannel=None):
         """Join a PUG.
 
         If no channel is specified, it tries to join the PUG in the current channel."""
@@ -101,7 +122,8 @@ class R6Pugs:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
+            await ctx.send(
+                "There is no PUG running in {0.mention}.".format(channel))
             return
         try:
             success = pug.add_member(ctx.author)
@@ -114,7 +136,9 @@ class R6Pugs:
             await ctx.send("Done.")
 
     @pug.command(name="leave")
-    async def _pug_leave(self, ctx: commands.Context, channel: discord.TextChannel=None):
+    async def _pug_leave(self,
+                         ctx: commands.Context,
+                         channel: discord.TextChannel=None):
         """Leave a PUG.
 
         If no channel is specified, it tries to leave the PUG in the current channel."""
@@ -122,7 +146,8 @@ class R6Pugs:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
+            await ctx.send(
+                "There is no PUG running in {0.mention}.".format(channel))
             return
         success = pug.remove_member(ctx.author)
         if success is False:
@@ -131,7 +156,10 @@ class R6Pugs:
         await ctx.send("Done.")
 
     @pug.command(name="submit")
-    async def _pug_submit(self, ctx: commands.Context, your_score: int, their_score: int):
+    async def _pug_submit(self,
+                          ctx: commands.Context,
+                          your_score: int,
+                          their_score: int):
         """Submit scores for a PUG match."""
         pug = self.get_pug(ctx.channel)
         if pug is None:
@@ -171,8 +199,9 @@ class R6Pugs:
                 ctx.bot.load_extension(spec)
             except Exception as err:
                 LOG.exception("Package loading failed", exc_info=err)
-                await ctx.send("Failed to load extension. Check your console or"
-                               " logs for details.")
+                await ctx.send(
+                    "Failed to load extension. Check your console or"
+                    " logs for details.")
             else:
                 loaded = await self.conf.loaded_extensions()
                 if extension not in loaded:
@@ -212,11 +241,13 @@ class R6Pugs:
                 names.append(modname)
         if names or loaded:
             if loaded:
-                await ctx.send(box("Loaded extensions:\n{}"
-                                   "".format(", ".join(loaded))))
+                await ctx.send(
+                    box("Loaded extensions:\n{}"
+                        "".format(", ".join(loaded))))
             if names:
-                await ctx.send(box("Available extensions:\n{}"
-                                   "".format(", ".join(names))))
+                await ctx.send(
+                    box("Available extensions:\n{}"
+                        "".format(", ".join(names))))
         else:
             await ctx.send("There are no extensions available.")
 
@@ -226,7 +257,8 @@ class R6Pugs:
         Returns `None` if no such PUG exists."""
         return next((p for p in self.pugs if p.ctx.channel == channel), None)
 
-    async def create_temp_channel(self, guild: discord.Guild) -> discord.TextChannel:
+    async def create_temp_channel(self,
+                                  guild: discord.Guild) -> discord.TextChannel:
         """Create a temporary text channel to run a PUG."""
         # Get the channel name
         name = None
@@ -234,7 +266,8 @@ class R6Pugs:
             name = "pug-{}".format(idx)
             if not any(c.name == name for c in guild.text_channels):
                 break
-        return await guild.create_text_channel(name, reason="Temporary PUG channel")
+        return await guild.create_text_channel(
+            name, reason="Temporary PUG channel")
 
     async def delete_temp_channel(self, channel: discord.TextChannel):
         """Delete a temporary PUG channel."""
@@ -263,14 +296,16 @@ class R6Pugs:
         if pug in self.pugs:
             self.pugs.remove(pug)
         if pug.ctx.channel not in pug.ctx.guild.text_channels:
-            return # In case channel was forcibly deleted
+            return  # In case channel was forcibly deleted
         msg = "The PUG here has been ended."
         if pug.settings["temp_channel"]:
-            msg += ("\nSince this channel was a temporary channel created specifically for"
-                    " this PUG, it will be deleted in 5 minutes.")
+            msg += (
+                "\nSince this channel was a temporary channel created specifically for"
+                " this PUG, it will be deleted in 5 minutes.")
             coro = self.delete_temp_channel(ctx.channel)
             LOG.debug("Scheduling deletion of channel #%s", ctx.channel)
-            ctx.bot.loop.call_later(_DELETE_CHANNEL_AFTER, ctx.bot.loop.create_task, coro)
+            ctx.bot.loop.call_later(_DELETE_CHANNEL_AFTER,
+                                    ctx.bot.loop.create_task, coro)
         await ctx.send(msg)
 
     async def on_pug_member_join(self, member: discord.Member, pug: Pug):
@@ -281,8 +316,8 @@ class R6Pugs:
 
             msg = ("{0.mention} has joined the Pug, {1} more player{2}"
                    " needed to start the match!"
-                   "".format(member, 10 - n_members,
-                             "s are" if n_members != 9 else " is"))
+                   "".format(member, 10 - n_members, "s are"
+                             if n_members != 9 else " is"))
         elif n_members == 10:
             msg = ("{0.mention} is the 10th player in the Pug, a match"
                    " will start now!".format(member))
@@ -298,8 +333,8 @@ class R6Pugs:
         if n_members < 10:
             msg = ("{0.mention} has left the Pug, {1} more player{2}"
                    " now needed to start the match."
-                   "".format(member, 10 - n_members,
-                             "s are" if n_members != 9 else " is"))
+                   "".format(member, 10 - n_members, "s are"
+                             if n_members != 9 else " is"))
         else:
             msg = "{0.mention} has left the Pug.".format(member)
         await pug.ctx.send(msg)
@@ -320,8 +355,9 @@ class R6Pugs:
                 pug.match_running = False
                 needed = 10 - len(pug.queue)
                 plural = " is" if needed == 1 else "s are"
-                await pug.ctx.send("{} more player{} needed to start the match!"
-                                   "".format(needed, plural))
+                await pug.ctx.send(
+                    "{} more player{} needed to start the match!"
+                    "".format(needed, plural))
                 return
         await pug.run_match()
 
@@ -340,18 +376,23 @@ class R6Pugs:
         await match.send_summary()
         pug = self.get_pug(ctx.channel)
         if len(pug.queue) >= 10:
-            await ctx.send("There will now be a 1 minute break before the next match starts.")
+            await ctx.send(
+                "There will now be a 1 minute break before the next match starts."
+            )
+
             def _allow_match(pug: Pug):
                 pug.match_running = False
+
             ctx.bot.loop.call_later(58, _allow_match, pug)
             ctx.bot.loop.call_later(60, pug.check_tenth_player)
         losing_score = min(score for score in match.final_score)
         losing_team_idx = match.final_score.index(losing_score)
         losing_team = match.teams[losing_team_idx]
         if pug.settings["losers_leave"] and match.final_score is not None:
-            await ctx.send("Losers are being removed from the PUG, they may use"
-                           " `{}pug join #{}` to rejoin the queue."
-                           "".format(ctx.prefix, ctx.channel.name))
+            await ctx.send(
+                "Losers are being removed from the PUG, they may use"
+                " `{}pug join #{}` to rejoin the queue."
+                "".format(ctx.prefix, ctx.channel.name))
             for player in losing_team:
                 pug.remove_member(player)
 
@@ -368,6 +409,7 @@ class R6Pugs:
     def __unload(self):
         self.bot.loop.create_task(unload_extensions(self.bot, self.conf))
 
+
 async def load_extensions(bot: Red, conf: Config):
     """Load extensions in the `conf.loaded_extensions` list."""
     loaded = await conf.loaded_extensions()
@@ -383,11 +425,13 @@ async def load_extensions(bot: Red, conf: Config):
             loaded.remove(extension)
     await conf.loaded_extensions.set(loaded)
 
+
 async def unload_extensions(bot: Red, conf: Config):
     """Unload extensions in the `conf.loaded_extensions` list."""
     loaded = await conf.loaded_extensions()
     for extension in loaded:
         bot.unload_extension(extension)
+
 
 def get_spec(extension: str):
     """Get the spec for a package in the `.extensions` folder."""

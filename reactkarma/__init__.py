@@ -1,10 +1,7 @@
 """ReactKarma - Upvote and downvote messages to give people karma!"""
-import logging
-from redbot.core.bot import Red
-from .reactkarma import ReactKarma
+from .reactkarma import *
+from .log import *
 
-LOG = logging.getLogger("red.reactkarma")
-
-def setup(bot: Red):
+def setup(bot):
     """Load ReactKarma"""
-    bot.add_cog(ReactKarma(bot))
+    bot.add_cog(ReactKarma())

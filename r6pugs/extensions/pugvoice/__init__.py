@@ -1,9 +1,9 @@
 """This extension manages voice channels and moving players
 for R6Pugs.
 """
-from redbot.core.bot import Red
-from .pugvoice import PugVoice
+from .pugvoice import *
 
-def setup(bot: Red):
+
+def setup(bot):
     """Load PugVoice"""
     bot.add_cog(PugVoice())

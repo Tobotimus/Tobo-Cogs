@@ -8,27 +8,27 @@ from .reactionmenus import (ConfirmationMenu, SingleSelectionMenu, PollMenu,
 from .match import PugMatch
 from .log import LOG
 
+__all__ = ["MAP_POOLS", "Pug"]
+
 MAP_POOLS = {
-    "All Maps": ["Bank", "Bartlett U.", "Border", "Chalet",
-                 "Club House", "Coastline", "Consulate",
-                 "Favelas", "Hereford Base", "House",
-                 "Kafe Dostoyevsky", "Kanal", "Oregon",
-                 "Plane", "Skyscraper", "Theme Park", "Yacht"],
-    "ESL Maps": ["Bank", "Border", "Chalet",
-                 "Club House", "Coastline", "Consulate",
-                 "Kafe Dostoyevsky", "Oregon", "Skyscraper"]
+    "All Maps": [
+        "Bank", "Bartlett U.", "Border", "Chalet", "Club House", "Coastline",
+        "Consulate", "Favelas", "Hereford Base", "House", "Kafe Dostoyevsky",
+        "Kanal", "Oregon", "Plane", "Skyscraper", "Theme Park", "Yacht"
+    ],
+    "ESL Maps": [
+        "Bank", "Border", "Chalet", "Club House", "Coastline", "Consulate",
+        "Kafe Dostoyevsky", "Oregon", "Skyscraper"
+    ]
 }
+
 
 class Pug:
     """Class to manage a PuG."""
 
-    def __init__(self, ctx: commands.Context, *,
-                 temp_channel: bool = False):
+    def __init__(self, ctx: commands.Context, *, temp_channel: bool=False):
         self.ctx = ctx
-        self.settings = {
-            "temp_channel": temp_channel,
-            "stopped": False
-        }
+        self.settings = {"temp_channel": temp_channel, "stopped": False}
         self.queue = []
         self.run_map_selection = None
         self.run_team_selection = None
@@ -63,37 +63,30 @@ class Pug:
     async def run_initial_setup(self):
         """Set up the PuG and get its settings."""
         ctx = self.ctx
-        teamsel_options = {"Captains": self.run_captains_pick,
-                           "Random": self.get_random_teams}
-        mapsel_options = {"Veto": self.run_map_veto,
-                          "Vote": self.run_map_vote}
-        loser_options = {"Losers Leave": True,
-                         "Losers Stay": False}
-        setups = [
-            (
-                MAP_POOLS,
-                "Which map pool will be used?",
-                "the map pool for this PuG"
-            ), (
-                teamsel_options,
-                "How will teams be determined?",
-                "the method for selecting teams"
-            ), (
-                mapsel_options,
-                "How will maps be determined?",
-                "the method for selecting maps"
-            ), (
-                loser_options,
-                "Will losers leave or stay after a match?",
-                "what happens after a match"
-            )
-        ]
+        teamsel_options = {
+            "Captains": self.run_captains_pick,
+            "Random": self.get_random_teams
+        }
+        mapsel_options = {"Veto": self.run_map_veto, "Vote": self.run_map_vote}
+        loser_options = {"Losers Leave": True, "Losers Stay": False}
+        setups = [(MAP_POOLS, "Which map pool will be used?",
+                   "the map pool for this PuG"),
+                  (teamsel_options, "How will teams be determined?",
+                   "the method for selecting teams"),
+                  (mapsel_options, "How will maps be determined?",
+                   "the method for selecting maps"),
+                  (loser_options, "Will losers leave or stay after a match?",
+                   "what happens after a match")]
         results = []
         for dict_, title, option in setups:
             options = list(dict_.keys())
-            menu = SingleSelectionMenu(ctx.bot, ctx.channel, ctx.author, options,
-                                       title=title,
-                                       option_name=option)
+            menu = SingleSelectionMenu(
+                ctx.bot,
+                ctx.channel,
+                ctx.author,
+                options,
+                title=title,
+                option_name=option)
             result = await menu.run()
             if result is None:
                 result = options[0]
@@ -125,7 +118,7 @@ class Pug:
         if len(self.queue) < 10:
             return
         LOG.debug("Refilling %s spots", n_spots)
-        players = self.queue[(10-n_spots):10]
+        players = self.queue[(10 - n_spots):10]
         LOG.debug(str(list(map(str, players))))
         await self.ctx.send("{} since some players were kicked, you are"
                             " now able to take their place in the PUG."
@@ -134,17 +127,22 @@ class Pug:
 
     async def _confirm_ready(self, players: List[discord.Member], **params):
         ctx = self.ctx
-        menu = ConfirmationMenu(ctx.bot, ctx.channel, players,
-                                title="Ready Up",
-                                action="ready up",
-                                **params)
+        menu = ConfirmationMenu(
+            ctx.bot,
+            ctx.channel,
+            players,
+            title="Ready Up",
+            action="ready up",
+            **params)
         not_ready_players = await menu.run()
         if not_ready_players:
             for player in not_ready_players:
                 self.queue.remove(player)
-            members_str = ", ".join((member.display_name for member in not_ready_players))
-            await ctx.send("Not all players readied up; these players have been kicked:\n"
-                           "{}".format(members_str))
+            members_str = ", ".join((member.display_name
+                                     for member in not_ready_players))
+            await ctx.send(
+                "Not all players readied up; these players have been kicked:\n"
+                "{}".format(members_str))
         return not_ready_players
 
     async def run_match(self):
@@ -171,12 +169,15 @@ class Pug:
             players.remove(cap)
         options = {u.display_name: u for u in players}
         ctx = self.ctx
-        menu = TurnBasedSelectionMenu(ctx.bot, ctx.channel, captains,
-                                      list(options.keys()),
-                                      title="Captains pick teams",
-                                      option_name="a player",
-                                      selectors_name="captains",
-                                      timeout=60.0)
+        menu = TurnBasedSelectionMenu(
+            ctx.bot,
+            ctx.channel,
+            captains,
+            list(options.keys()),
+            title="Captains pick teams",
+            option_name="a player",
+            selectors_name="captains",
+            timeout=60.0)
         teams = await menu.run()
         for team, captain in zip(teams, captains):
             team[:] = map(options.get, team)
@@ -190,22 +191,22 @@ class Pug:
         await self.ctx.send("The teams are being randomised...")
         players = self.queue[:10]
         random.shuffle(players)
-        teams = (
-            players[:5],
-            players[5:]
-        )
+        teams = (players[:5], players[5:])
         return teams
 
     async def run_map_veto(self, teams: Tuple[List[discord.Member]]):
         """Run a map veto with this PuG's map pool."""
         captains = [team[0] for team in teams]
         ctx = self.ctx
-        menu = TurnBasedVetoMenu(ctx.bot, ctx.channel, captains,
-                                 self.settings["maps"],
-                                 title="Map veto",
-                                 option_name="a map",
-                                 selectors_name="captains",
-                                 timeout=60.0)
+        menu = TurnBasedVetoMenu(
+            ctx.bot,
+            ctx.channel,
+            captains,
+            self.settings["maps"],
+            title="Map veto",
+            option_name="a map",
+            selectors_name="captains",
+            timeout=60.0)
         picks = await menu.run()
         return picks.pop()
 
@@ -216,11 +217,14 @@ class Pug:
             for player in team:
                 players.append(player)
         ctx = self.ctx
-        menu = PollMenu(ctx.bot, ctx.channel, players,
-                        self.settings["maps"],
-                        title="Vote For Maps",
-                        option_name="a map",
-                        timeout=60.0)
+        menu = PollMenu(
+            ctx.bot,
+            ctx.channel,
+            players,
+            self.settings["maps"],
+            title="Vote For Maps",
+            option_name="a map",
+            timeout=60.0)
         return await menu.run()
 
     def end(self):

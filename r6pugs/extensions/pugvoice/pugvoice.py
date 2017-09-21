@@ -3,28 +3,35 @@ import re
 import discord
 from r6pugs import Pug, PugMatch
 
+__all__ = ["pug_has_voice_channels", "match_has_voice_channels", "PugVoice"]
+
 _HEADER_CHANNEL = "----------------------"
 _LOBBY_NAME = "\N{Dog Face} Pug {0} - Lobby"
 _TEAM_CHANNEL_NAME = "\N{Dog} Pug {0} {1}"
 _BLUE = "\N{Large Blue Diamond}"
 _ORANGE = "\N{Large Orange Diamond}"
 
+
 # decorators
 def pug_has_voice_channels(func):
     """Decorator which makes sure the function only runs if
     there are voice channels for the pug being passed in.
     """
+
     async def _decorated(cog, *args, **kwargs):
         pug = next((arg for arg in args if isinstance(arg, Pug)), None)
         if pug is None or pug not in cog.channels:
             return
         await func(cog, *args, **kwargs)
+
     return _decorated
+
 
 def match_has_voice_channels(func):
     """Decorator which gets the pug for the match and passes it in,
     if there are voice channels for it.
     """
+
     async def _decorated(cog, *args, **kwargs):
         match = next((arg for arg in args if isinstance(arg, PugMatch)), None)
         if match is None:
@@ -35,7 +42,9 @@ def match_has_voice_channels(func):
         if pug is None or pug not in cog.channels:
             return
         await func(cog, match, pug, *args, **kwargs)
+
     return _decorated
+
 
 class PugVoice:
     """Cog to manage voice channels for PUGs."""
@@ -51,8 +60,10 @@ class PugVoice:
         pug_n = int(pug_n.pop())
         guild = pug.ctx.guild
         bot_settings = pug.ctx.bot.db.guild(guild)
-        mod_role = discord.utils.get(guild.roles, id=await bot_settings.mod_role())
-        admin_role = discord.utils.get(guild.roles, id=await bot_settings.admin_role())
+        mod_role = discord.utils.get(
+            guild.roles, id=await bot_settings.mod_role())
+        admin_role = discord.utils.get(
+            guild.roles, id=await bot_settings.admin_role())
         def_overwrite = {
             guild.default_role: discord.PermissionOverwrite(connect=False),
             guild.me: discord.PermissionOverwrite(manage_channels=True),
@@ -60,28 +71,34 @@ class PugVoice:
         if mod_role is not None:
             def_overwrite[mod_role] = discord.PermissionOverwrite(
                 connect=True,
-                manage_channels=True if mod_role.permissions.manage_channels else None)
+                manage_channels=True
+                if mod_role.permissions.manage_channels else None)
         if admin_role is not None:
-            def_overwrite[admin_role] = discord.PermissionOverwrite(manage_channels=True)
-        header = await guild.create_voice_channel(_HEADER_CHANNEL,
-                                                  overwrites=def_overwrite,
-                                                  reason="Header for PUG voice channels")
+            def_overwrite[admin_role] = discord.PermissionOverwrite(
+                manage_channels=True)
+        header = await guild.create_voice_channel(
+            _HEADER_CHANNEL,
+            overwrites=def_overwrite,
+            reason="Header for PUG voice channels")
 
         allow_starter = {
             pug.ctx.author: discord.PermissionOverwrite(connect=True)
         }
         allow_starter.update(def_overwrite)
-        lobby = await guild.create_voice_channel(_LOBBY_NAME.format(pug_n),
-                                                 overwrites=allow_starter,
-                                                 reason="Lobby for PUG")
+        lobby = await guild.create_voice_channel(
+            _LOBBY_NAME.format(pug_n),
+            overwrites=allow_starter,
+            reason="Lobby for PUG")
 
-        blue = await guild.create_voice_channel(_TEAM_CHANNEL_NAME.format(pug_n, _BLUE),
-                                                overwrites=def_overwrite,
-                                                reason="Team channel for PUG")
+        blue = await guild.create_voice_channel(
+            _TEAM_CHANNEL_NAME.format(pug_n, _BLUE),
+            overwrites=def_overwrite,
+            reason="Team channel for PUG")
 
-        orange = await guild.create_voice_channel(_TEAM_CHANNEL_NAME.format(pug_n, _ORANGE),
-                                                  overwrites=def_overwrite,
-                                                  reason="Team channel for PUG")
+        orange = await guild.create_voice_channel(
+            _TEAM_CHANNEL_NAME.format(pug_n, _ORANGE),
+            overwrites=def_overwrite,
+            reason="Team channel for PUG")
 
         self.channels[pug] = {
             "header": header,
@@ -117,7 +134,7 @@ class PugVoice:
         await orange.set_permissions(member, overwrite=None)
 
     @match_has_voice_channels
-    async def on_pug_match_start(self, match: PugMatch, pug: Pug = None):
+    async def on_pug_match_start(self, match: PugMatch, pug: Pug=None):
         """Fires when a match starts and allows the players access to their
         voice channels, before moving them in.
         """
@@ -129,7 +146,7 @@ class PugVoice:
                 await player.move_to(channel)
 
     @match_has_voice_channels
-    async def on_pug_match_end(self, match: PugMatch, pug: Pug = None):
+    async def on_pug_match_end(self, match: PugMatch, pug: Pug=None):
         """Fires when a match ends and denies the players access to their
         voice channels, after moving them to the lobby.
         """

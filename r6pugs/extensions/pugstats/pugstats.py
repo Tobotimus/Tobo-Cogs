@@ -3,13 +3,17 @@ import discord
 from redbot.core import Config
 from r6pugs import UNIQUE_ID, PugMatch
 
+__all__ = ["PugStats"]
+
+
 class PugStats:
     """An addon for R6Pugs which keeps track of stats for
      each player / server.
     """
 
     def __init__(self):
-        self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
+        self.conf = Config.get_conf(
+            self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_member(wins=0, losses=0, map_stats={})
 
     async def on_pug_match_end(self, match: PugMatch):
