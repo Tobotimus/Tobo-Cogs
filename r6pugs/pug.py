@@ -2,7 +2,6 @@
 import random
 from typing import Tuple, List
 import discord
-from discord.ext import commands
 from .reactionmenus import (ConfirmationMenu, SingleSelectionMenu, PollMenu,
                             TurnBasedVetoMenu, TurnBasedSelectionMenu)
 from .match import PugMatch
@@ -26,22 +25,31 @@ MAP_POOLS = {
 class Pug:
     """Class to manage a PuG."""
 
-    def __init__(self, ctx: commands.Context, *, temp_channel: bool=False):
-        self.ctx = ctx
-        self.settings = {"temp_channel": temp_channel, "stopped": False}
+    def __init__(self,
+                 bot,
+                 category: discord.CategoryChannel,
+                 channel: discord.TextChannel,
+                 owner: discord.Member,
+                 *,
+                 temp_channels: bool=False):
+        self.bot = bot
+        self.category = category
+        self.channel = channel
+        self.owner = owner
+        self.settings = {"temp_channels": temp_channels, "stopped": False}
         self.queue = []
         self.run_map_selection = None
         self.run_team_selection = None
         self.match = None
         self.match_running = False
-        ctx.bot.dispatch("pug_start", self)
+        bot.dispatch("pug_start", self)
 
     def add_member(self, member: discord.Member):
         """Add a member to this PuG."""
         if member in self.queue:
             return False
         self.queue.append(member)
-        self.ctx.bot.dispatch("pug_member_join", member, self)
+        self.bot.dispatch("pug_member_join", member, self)
         self.check_tenth_player()
         return len(self.queue)
 
@@ -50,19 +58,16 @@ class Pug:
         if member not in self.queue:
             return False
         self.queue.remove(member)
-        self.ctx.bot.dispatch("pug_member_remove", member, self)
+        self.bot.dispatch("pug_member_remove", member, self)
         return len(self.queue)
 
     def check_tenth_player(self):
-        """Check if 10 players have joined a match and,
-        if the match hasn't started yet, start it.
-        """
+        """Start a match if 10 players have joined."""
         if len(self.queue) >= 10 and not self.match_running:
-            self.ctx.bot.dispatch("tenth_player", self)
+            self.bot.dispatch("tenth_player", self)
 
     async def run_initial_setup(self):
         """Set up the PuG and get its settings."""
-        ctx = self.ctx
         teamsel_options = {
             "Captains": self.run_captains_pick,
             "Random": self.get_random_teams
@@ -81,9 +86,9 @@ class Pug:
         for dict_, title, option in setups:
             options = list(dict_.keys())
             menu = SingleSelectionMenu(
-                ctx.bot,
-                ctx.channel,
-                ctx.author,
+                self.bot,
+                self.channel,
+                self.owner,
                 options,
                 title=title,
                 option_name=option)
@@ -109,8 +114,9 @@ class Pug:
             return
         LOG.debug("Readying up")
         players = self.queue[:10]
-        await self.ctx.send("{} it is time to ready up for the PuG!"
-                            "".format(", ".join((p.mention for p in players))))
+        players_mentions = ", ".join((p.mention for p in players))
+        await self.channel.send("{} it is time to ready up for the PuG!"
+                                "".format(players_mentions))
         return await self._confirm_ready(players, timeout=60.0)
 
     async def refill(self, n_spots: int):
@@ -120,16 +126,16 @@ class Pug:
         LOG.debug("Refilling %s spots", n_spots)
         players = self.queue[(10 - n_spots):10]
         LOG.debug(str(list(map(str, players))))
-        await self.ctx.send("{} since some players were kicked, you are"
-                            " now able to take their place in the PUG."
-                            "".format(", ".join((p.mention for p in players))))
+        players_mention = ", ".join((p.mention for p in players))
+        await self.channel.send("{} since some players were kicked, you are"
+                                " now able to take their place in the PUG."
+                                "".format(players_mention))
         return await self._confirm_ready(players, timeout=60.0)
 
     async def _confirm_ready(self, players: List[discord.Member], **params):
-        ctx = self.ctx
         menu = ConfirmationMenu(
-            ctx.bot,
-            ctx.channel,
+            self.bot,
+            self.channel,
             players,
             title="Ready Up",
             action="ready up",
@@ -140,22 +146,24 @@ class Pug:
                 self.queue.remove(player)
             members_str = ", ".join((member.display_name
                                      for member in not_ready_players))
-            await ctx.send(
+            await self.channel.send(
                 "Not all players readied up; these players have been kicked:\n"
                 "{}".format(members_str))
         return not_ready_players
 
     async def run_match(self):
-        """Run a match for this PuG. Should only be called when
-         there are at least 10 ready players in the queue.
+        """Run a match for this PuG.
+
+        This should only be called when there are at least 10 ready players in
+        the queue.
         """
         if len(self.queue) < 10:
             return
-        await self.ctx.send("The match will start soon!")
+        await self.channel.send("The match will start soon!")
         # try:
         teams = await self.run_team_selection()
         map_ = await self.run_map_selection(teams)
-        self.match = PugMatch(self.ctx, teams, map_)
+        self.match = PugMatch(self.bot, self.channel, teams, map_)
 
     async def run_captains_pick(self):
         """Get captains to pick the members for each team."""
@@ -168,10 +176,9 @@ class Pug:
             captains.append(cap)
             players.remove(cap)
         options = {u.display_name: u for u in players}
-        ctx = self.ctx
         menu = TurnBasedSelectionMenu(
-            ctx.bot,
-            ctx.channel,
+            self.bot,
+            self.channel,
             captains,
             list(options.keys()),
             title="Captains pick teams",
@@ -188,7 +195,7 @@ class Pug:
         """Get random teams for this PuG."""
         if len(self.queue) < 10:
             return
-        await self.ctx.send("The teams are being randomised...")
+        await self.channel.send("The teams are being randomised...")
         players = self.queue[:10]
         random.shuffle(players)
         teams = (players[:5], players[5:])
@@ -197,10 +204,9 @@ class Pug:
     async def run_map_veto(self, teams: Tuple[List[discord.Member]]):
         """Run a map veto with this PuG's map pool."""
         captains = [team[0] for team in teams]
-        ctx = self.ctx
         menu = TurnBasedVetoMenu(
-            ctx.bot,
-            ctx.channel,
+            self.bot,
+            self.channel,
             captains,
             self.settings["maps"],
             title="Map veto",
@@ -216,10 +222,9 @@ class Pug:
         for team in teams:
             for player in team:
                 players.append(player)
-        ctx = self.ctx
         menu = PollMenu(
-            ctx.bot,
-            ctx.channel,
+            self.bot,
+            self.channel,
             players,
             self.settings["maps"],
             title="Vote For Maps",
@@ -230,4 +235,4 @@ class Pug:
     def end(self):
         """End this PuG."""
         self.settings["stopped"] = True
-        self.ctx.bot.dispatch("pug_end", self)
+        self.bot.dispatch("pug_end", self)

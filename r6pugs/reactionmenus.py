@@ -29,7 +29,8 @@ class _ReactionMenu:
                                 timeout: float=None):
         """Wait for a reaction which meets the passed in requirements.
 
-        The menu must have been sent before calling."""
+        The menu must have been sent before calling.
+        """
         if self.message is None:
             raise MenuNotSent(
                 "The menu must be sent before waiting for a reaction.")
@@ -210,9 +211,7 @@ class SingleSelectionMenu(_OptionMenu):
 
 
 class PollMenu(_OptionMenu):
-    """A poll menu, where a group of users can vote on some
-     list of options.
-    """
+    """A poll menu, where a group of users can vote on some list of options."""
 
     def __init__(self,
                  bot: commands.Bot,
@@ -248,7 +247,7 @@ class PollMenu(_OptionMenu):
         return await self.finish()
 
     async def vote(self, reaction: discord.Reaction, voter: discord.Member):
-        """A user votes with a reaction."""
+        """Register a user's vote with a reaction."""
         if voter in self.voters:
             self.voters.remove(voter)
         vote = self.options[self.emojis.index(reaction.emoji)]
@@ -315,8 +314,7 @@ class _TurnBasedMenu(_OptionMenu):
                                "".format(selector, action, self.option_name)))
         await self.message.edit(embed=embed)
 
-    async def _get_response(self, selector: discord.Member, emojis: List[str]
-                            ) -> Tuple[str, discord.Member, str]:
+    async def _get_response(self, selector: discord.Member, emojis: List[str]):
         try:
             response = await self.wait_for_reaction(
                 users=[selector], emojis=emojis, timeout=self.timeout)
@@ -354,8 +352,11 @@ class _TurnBasedMenu(_OptionMenu):
 
 
 class TurnBasedVetoMenu(_TurnBasedMenu):
-    """A veto menu where two users take turns vetoing through a list
-     of options, until `n_picks` are remaning."""
+    """A veto menu where two users take turns vetoing.
+
+    The users vetothrough a list of options, until `n_picks` are remaning.
+    Then, the users will take turns selecting the remaining options.
+    """
 
     VETOED = '\N{No Entry}'
     PICKED = '\N{White Heavy Check Mark}'
@@ -428,8 +429,9 @@ class TurnBasedVetoMenu(_TurnBasedMenu):
 
 
 class TurnBasedSelectionMenu(_TurnBasedMenu):
-    """A selection menu where two users take turns selecting from
-     a list until the list is exhausted
+    """A selection menu where two users take turns selecting.
+
+    Users select from a list of options until the list is exhausted.
     """
 
     SELECTED = ('\N{Large Blue Diamond}', '\N{Large Orange Diamond}')

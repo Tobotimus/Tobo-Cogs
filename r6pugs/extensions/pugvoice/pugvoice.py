@@ -5,18 +5,14 @@ from r6pugs import Pug, PugMatch
 
 __all__ = ["pug_has_voice_channels", "match_has_voice_channels", "PugVoice"]
 
-_HEADER_CHANNEL = "----------------------"
-_LOBBY_NAME = "\N{Dog Face} Pug {0} - Lobby"
-_TEAM_CHANNEL_NAME = "\N{Dog} Pug {0} {1}"
-_BLUE = "\N{Large Blue Diamond}"
-_ORANGE = "\N{Large Orange Diamond}"
+_LOBBY_NAME = "\N{Dog Face} Lobby"
+_BLUE = "\N{Large Blue Diamond} Blue Team"
+_ORANGE = "\N{Large Orange Diamond} Orange Team"
 
 
 # decorators
 def pug_has_voice_channels(func):
-    """Decorator which makes sure the function only runs if
-    there are voice channels for the pug being passed in.
-    """
+    """Check if a pug has voice channels before running the coroutine."""
 
     async def _decorated(cog, *args, **kwargs):
         pug = next((arg for arg in args if isinstance(arg, Pug)), None)
@@ -28,9 +24,7 @@ def pug_has_voice_channels(func):
 
 
 def match_has_voice_channels(func):
-    """Decorator which gets the pug for the match and passes it in,
-    if there are voice channels for it.
-    """
+    """Check if a match has voice channels before running the coroutine."""
 
     async def _decorated(cog, *args, **kwargs):
         match = next((arg for arg in args if isinstance(arg, PugMatch)), None)
@@ -38,7 +32,8 @@ def match_has_voice_channels(func):
             return
         args = list(args)
         args.remove(match)
-        pug = match.ctx.cog.get_pug(match.ctx.channel)
+        main_cog = match.bot.get_cog("R6Pugs")
+        pug = main_cog.get_pug(match.channel)
         if pug is None or pug not in cog.channels:
             return
         await func(cog, match, pug, *args, **kwargs)
@@ -53,17 +48,21 @@ class PugVoice:
         self.channels = {}
 
     async def on_pug_start(self, pug: Pug):
-        """Fires when a PUG starts and creates new voice channels for it."""
-        pug_n = re.findall(r'\d+', pug.ctx.channel.name)
+        """Event for a PUG starting.
+
+        Creates the voice channels for the PUG under its channel category.
+        """
+        category = pug.category
+        pug_n = re.findall(r'\d+', category.name)
         if not pug_n:
             return
         pug_n = int(pug_n.pop())
-        guild = pug.ctx.guild
-        bot_settings = pug.ctx.bot.db.guild(guild)
-        mod_role = discord.utils.get(
-            guild.roles, id=await bot_settings.mod_role())
-        admin_role = discord.utils.get(
-            guild.roles, id=await bot_settings.admin_role())
+        guild = category.guild
+        bot_settings = pug.bot.db.guild(guild)
+        mod_role = await bot_settings.mod_role()
+        mod_role = next((r for r in guild.roles if r.id == mod_role), None)
+        admin_role = await bot_settings.admin_role()
+        admin_role = next((r for r in guild.roles if r.id == admin_role), None)
         def_overwrite = {
             guild.default_role: discord.PermissionOverwrite(connect=False),
             guild.me: discord.PermissionOverwrite(manage_channels=True),
@@ -76,32 +75,30 @@ class PugVoice:
         if admin_role is not None:
             def_overwrite[admin_role] = discord.PermissionOverwrite(
                 manage_channels=True)
-        header = await guild.create_voice_channel(
-            _HEADER_CHANNEL,
-            overwrites=def_overwrite,
-            reason="Header for PUG voice channels")
 
         allow_starter = {
-            pug.ctx.author: discord.PermissionOverwrite(connect=True)
+            pug.owner: discord.PermissionOverwrite(connect=True)
         }
         allow_starter.update(def_overwrite)
         lobby = await guild.create_voice_channel(
-            _LOBBY_NAME.format(pug_n),
+            _LOBBY_NAME,
+            category=category,
             overwrites=allow_starter,
             reason="Lobby for PUG")
 
         blue = await guild.create_voice_channel(
-            _TEAM_CHANNEL_NAME.format(pug_n, _BLUE),
+            _BLUE,
+            category=category,
             overwrites=def_overwrite,
             reason="Team channel for PUG")
 
         orange = await guild.create_voice_channel(
-            _TEAM_CHANNEL_NAME.format(pug_n, _ORANGE),
+            _ORANGE,
+            category=category,
             overwrites=def_overwrite,
             reason="Team channel for PUG")
 
         self.channels[pug] = {
-            "header": header,
             "lobby": lobby,
             "blue": blue,
             "orange": orange
@@ -109,21 +106,24 @@ class PugVoice:
 
     @pug_has_voice_channels
     async def on_pug_end(self, pug: Pug):
-        """Fires when a PUG ends and deletes its voice channels."""
-        for channel in self.channels[pug].values():
-            await channel.delete(reason="Deleting temporary PUG channel")
+        """Event for a PUG ending."""
         self.channels.pop(pug)
 
     @pug_has_voice_channels
     async def on_pug_member_join(self, member: discord.Member, pug: Pug):
-        """Fires when a member joins a PUG and allows them access to the lobby."""
+        """Event for a member being added to a PUG.
+
+        Allows for the member to connect to and speak in the PUG lobby.
+        """
         lobby = self.channels[pug].get("lobby")
         await lobby.set_permissions(member, connect=True)
 
     @pug_has_voice_channels
     async def on_pug_member_remove(self, member: discord.Member, pug: Pug):
-        """Fires when a member joins a PUG and denies them access to the lobby
-        (and team channels).
+        """Event for a member being removed from a PUG.
+
+        Removes any permissions which were previously granted to them by this
+        extension.
         """
         channels = self.channels[pug]
         lobby = channels.get("lobby")
@@ -135,20 +135,28 @@ class PugVoice:
 
     @match_has_voice_channels
     async def on_pug_match_start(self, match: PugMatch, pug: Pug=None):
-        """Fires when a match starts and allows the players access to their
-        voice channels, before moving them in.
+        """Event for a PUG match starting.
+
+        Players will be given permissions to connect to and speak in their
+        team's voice channels. Any players who are connected to a channel will
+        be moved to their respective team channel.
         """
         channels = self.channels[pug]
         channels = (channels.get("blue"), channels.get("orange"))
         for team, channel in zip(match.teams, channels):
             for player in team:
                 await channel.set_permissions(player, connect=True)
-                await player.move_to(channel)
+                try:
+                    await player.move_to(channel)
+                except discord.Forbidden:
+                    pass
 
     @match_has_voice_channels
     async def on_pug_match_end(self, match: PugMatch, pug: Pug=None):
-        """Fires when a match ends and denies the players access to their
-        voice channels, after moving them to the lobby.
+        """Event for a PUG match ending.
+
+        Players are moved back to the PUG lobby, and their permissions for
+        the team channels are revoked.
         """
         channels = self.channels[pug]
         lobby = channels.get("lobby")
@@ -156,4 +164,7 @@ class PugVoice:
         for team, channel in zip(match.teams, channels):
             for player in team:
                 await channel.set_permissions(player, overwrite=None)
-                await player.move_to(lobby)
+                try:
+                    await player.move_to(lobby)
+                except discord.Forbidden:
+                    pass

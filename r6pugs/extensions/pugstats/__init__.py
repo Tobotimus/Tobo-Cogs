@@ -3,5 +3,5 @@ from .pugstats import *
 
 
 def setup(bot):
-    """Load PugStats"""
+    """Load PugStats."""
     bot.add_cog(PugStats())
