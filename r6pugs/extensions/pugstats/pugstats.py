@@ -7,8 +7,9 @@ __all__ = ["PugStats"]
 
 
 class PugStats:
-    """An addon for R6Pugs which keeps track of stats for
-     each player / server.
+    """Stats extension for R6Pugs.
+
+    This extension keeps track of basic stats for each player / server.
     """
 
     def __init__(self):
@@ -17,7 +18,10 @@ class PugStats:
         self.conf.register_member(wins=0, losses=0, map_stats={})
 
     async def on_pug_match_end(self, match: PugMatch):
-        """Fires when a pug match ends and submits the stats for each player."""
+        """Event for a PUG match ending.
+
+        Logs stats for each player in the database.
+        """
         losing_score = min(score for score in match.final_score)
         losing_team_idx = match.final_score.index(losing_score)
         losing_team = match.teams[losing_team_idx]
@@ -37,6 +41,6 @@ class PugStats:
         await total.set(total_n + 1)
         stats = await settings.map_stats()
         if map_ not in stats:
-            stats[map_] = (0, 0)
+            stats[map_] = [0, 0]
         stats[map_][int(not win)] += 1
         await settings.map_stats.set(stats)

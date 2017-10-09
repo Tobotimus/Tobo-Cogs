@@ -3,7 +3,6 @@ import pkgutil
 import discord
 from discord.ext import commands
 from redbot.core import Config, checks
-from redbot.core.bot import Red
 from redbot.core.utils.chat_formatting import box
 from .log import LOG
 from .pug import Pug
@@ -23,15 +22,14 @@ _DELETE_CHANNEL_AFTER = 300  # seconds
 
 # Decorator
 def pug_starter_or_permissions(**perms):
-    """Check decorator which checks if a user is authorized
-    to manage a PUG."""
+    """Check if a user is authorized to manage a PUG."""
 
     def _check(ctx: commands.Context):
-        pug = ctx.cog.get_pug(ctx.channel)
+        cog = ctx.bot.get_cog("R6Pugs")
+        pug = cog.get_pug(ctx.channel)
         if pug is None:
             return True
-        is_starter = ctx.author == pug.ctx.author
-        if is_starter:
+        if ctx.author == pug.owner:
             return True
         return checks.check_permissions(ctx, perms)
 
@@ -41,7 +39,7 @@ def pug_starter_or_permissions(**perms):
 class R6Pugs:
     """Cog to run PUGs for Rainbow Six."""
 
-    def __init__(self, bot: Red):
+    def __init__(self, bot):
         self.pugs = []
         self.conf = Config.get_conf(
             self, identifier=UNIQUE_ID, force_registration=True)
@@ -60,15 +58,13 @@ class R6Pugs:
     async def _pug_start(self, ctx: commands.Context):
         """Start a new PUG.
 
-        A temporary channel will be created to house the PUG."""
-        channel = await self.create_temp_channel(ctx.guild)
-        original_channel = ctx.channel
-        ctx.channel = channel
-        pug = Pug(ctx, temp_channel=True)
+        A temporary channel category will be created to house the PUG.
+        """
+        category, channel = await self.create_temp_category(ctx.guild)
+        pug = Pug(ctx.bot, category, channel, ctx.author, temp_channels=True)
         self.pugs.append(pug)
         pug.add_member(ctx.author)
-        await original_channel.send(
-            "Pug started in {0.mention}.".format(channel))
+        await ctx.send("Pug started in {0.mention}.".format(channel))
 
     @pug.command(name="stop")
     @pug_starter_or_permissions(manage_messages=True)
@@ -77,7 +73,8 @@ class R6Pugs:
                         channel: discord.TextChannel=None):
         """Stop an ongoing PUG.
 
-        If no channel is specified, it will try to end the PUG in this channel."""
+        If no channel is specified, it will try to end the PUG in this channel.
+        """
         if channel is None:
             channel = ctx.channel
         pug = self.get_pug(channel)
@@ -95,7 +92,8 @@ class R6Pugs:
                         channel: discord.TextChannel=None):
         """Kick a member from an ongoing PUG.
 
-        If no channel is specified, it will try to use the PUG in this channel."""
+        If no channel is specified, it will try to use the PUG in this channel.
+        """
         if channel is None:
             channel = ctx.channel
         pug = self.get_pug(channel)
@@ -105,9 +103,8 @@ class R6Pugs:
             return
         success = pug.remove_member(member)
         if success is not False:
-            await ctx.send(
-                "*{0.display_name}* has been kicked from the PUG in {1.mention}."
-                "".format(member, channel))
+            await ctx.send("*{0.display_name}* has been kicked from the PUG"
+                           " in {1.mention}.".format(member, channel))
             return
         await ctx.send("*{0.display_name}* is not in that PUG.")
 
@@ -117,7 +114,9 @@ class R6Pugs:
                         channel: discord.TextChannel=None):
         """Join a PUG.
 
-        If no channel is specified, it tries to join the PUG in the current channel."""
+        If no channel is specified, it tries to join the PUG in the current
+        channel.
+        """
         if channel is None:
             channel = ctx.channel
         pug = self.get_pug(channel)
@@ -141,7 +140,9 @@ class R6Pugs:
                          channel: discord.TextChannel=None):
         """Leave a PUG.
 
-        If no channel is specified, it tries to leave the PUG in the current channel."""
+        If no channel is specified, it tries to leave the PUG in the current
+        channel.
+        """
         if channel is None:
             channel = ctx.channel
         pug = self.get_pug(channel)
@@ -251,65 +252,105 @@ class R6Pugs:
         else:
             await ctx.send("There are no extensions available.")
 
-    def get_pug(self, channel: discord.TextChannel):
-        """Get the PUG at the given channel.
+    def get_pug(self, channel):
+        """Get the PUG running in the given channel or category.
 
-        Returns `None` if no such PUG exists."""
-        return next((p for p in self.pugs if p.ctx.channel == channel), None)
+        Returns `None` if no such PUG exists.
 
-    async def create_temp_channel(self,
-                                  guild: discord.Guild) -> discord.TextChannel:
-        """Create a temporary text channel to run a PUG."""
+        Parameters
+        ----------
+        channel: Union[discord.TextChannel, discord.CategoryChannel]
+            The channel or category which the PUG is running in.
+
+        """
+        if isinstance(channel, discord.TextChannel):
+            return next((p for p in self.pugs if p.channel == channel), None)
+        if isinstance(channel, discord.CategoryChannel):
+            return next((p for p in self.pugs if p.category == channel), None)
+        raise TypeError("Can only get PUG by its text channel or its"
+                        " category.")
+
+    async def create_temp_category(self, guild: discord.Guild):
+        """Create a temporary channel category to run a PUG.
+
+        The category will be named with an index, e.g. if the index is 1,
+        the category's name will be ``PUG 1``. The index is found by searching
+        through the existing categories in the guild and seeing if there are
+        any conflicting names.
+
+        Parameters
+        ----------
+        guild: discord.Guild
+            The guild which the category will belong to.
+
+        """
         # Get the channel name
-        name = None
+        cat_name = None
+        idx = None
         for idx in range(1, 100):
-            name = "pug-{}".format(idx)
-            if not any(c.name == name for c in guild.text_channels):
+            cat_name = "PUG {}".format(idx)
+            if not any(c.name == cat_name for c in guild.categories):
                 break
-        return await guild.create_text_channel(
-            name, reason="Temporary PUG channel")
+        chan_name = "pug-{}".format(idx)
+        category = await guild.create_category(
+            cat_name, reason="Temporary PUG category")
+        channel = await guild.create_text_channel(
+            chan_name, category=category, reason="Temporary PUG channel")
+        return (category, channel)
 
-    async def delete_temp_channel(self, channel: discord.TextChannel):
-        """Delete a temporary PUG channel."""
+    async def delete_temp_category(self, category: discord.CategoryChannel):
+        """Delete a temporary PUG category.
+
+        This will also delete all channels which are contained in this
+        category.
+
+        Parameters
+        ----------
+        category: discord.CategoryChannel
+            The temporary category to be deleted.
+
+        """
         try:
-            await channel.delete(reason="Temporary PUG channel")
+            for channel in category.channels:
+                await channel.delete(reason="Temporary PUG channel")
+            await category.delete(reason="Temporary PUG category")
         except (discord.errors.HTTPException, discord.errors.NotFound):
             pass
 
     # Events
 
     async def on_pug_start(self, pug: Pug):
-        """Fires when a PUG is started."""
-        ctx = pug.ctx
-        LOG.debug("PUG started; #%s in %s", ctx.channel, ctx.guild)
+        """Event for a PUG starting."""
+        channel = pug.channel
+        LOG.debug("PUG started; #%s in %s", channel, channel.guild)
         if pug not in self.pugs:
             self.pugs.append(pug)
-        await ctx.send("A PUG has been started here by {0.author.mention}, use"
-                       " `{0.prefix}pug join #{0.channel.name}` to join it."
-                       "".format(ctx))
+        await channel.send("A PUG has been started here by {0.mention},"
+                           "type `!pug join` in this channel to join it."
+                           "".format(pug.owner))
         await pug.run_initial_setup()
 
     async def on_pug_end(self, pug: Pug):
-        """Fires when a PUG is ended, and removes it from this cog's PUGs."""
-        ctx = pug.ctx
-        LOG.debug("PUG ended; #%s in %s", ctx.channel, ctx.guild)
+        """Event for a PUG ending."""
+        channel = pug.channel
+        LOG.debug("PUG ended; #%s in %s", channel, channel.guild)
         if pug in self.pugs:
             self.pugs.remove(pug)
-        if pug.ctx.channel not in pug.ctx.guild.text_channels:
+        if channel not in channel.guild.text_channels:
             return  # In case channel was forcibly deleted
         msg = "The PUG here has been ended."
-        if pug.settings["temp_channel"]:
+        if pug.settings["temp_channels"]:
             msg += (
-                "\nSince this channel was a temporary channel created specifically for"
-                " this PUG, it will be deleted in 5 minutes.")
-            coro = self.delete_temp_channel(ctx.channel)
-            LOG.debug("Scheduling deletion of channel #%s", ctx.channel)
-            ctx.bot.loop.call_later(_DELETE_CHANNEL_AFTER,
-                                    ctx.bot.loop.create_task, coro)
-        await ctx.send(msg)
+                "\nSince this channel was a temporary channel created"
+                " specifically for this PUG, it will be deleted in 5 minutes.")
+            coro = self.delete_temp_category(pug.category)
+            LOG.debug("Scheduling deletion of category %s", pug.category)
+            pug.bot.loop.call_later(_DELETE_CHANNEL_AFTER,
+                                    pug.bot.loop.create_task, coro)
+        await channel.send(msg)
 
     async def on_pug_member_join(self, member: discord.Member, pug: Pug):
-        """Fires when a member is added to a Pug."""
+        """Event for a member being added to a PUG."""
         n_members = len(pug.queue)
         msg = ""
         if n_members < 10:
@@ -324,10 +365,10 @@ class R6Pugs:
         else:
             msg = ("{0.mention} has joined the Pug and is at position"
                    " {1} in the queue.".format(member, n_members - 10))
-        await pug.ctx.send(msg)
+        await pug.channel.send(msg)
 
     async def on_pug_member_remove(self, member: discord.Member, pug: Pug):
-        """Fires when a member is removed from a Pug."""
+        """Event for a member being removed from a PUG."""
         n_members = len(pug.queue)
         msg = ""
         if n_members < 10:
@@ -337,12 +378,10 @@ class R6Pugs:
                              if n_members != 9 else " is"))
         else:
             msg = "{0.mention} has left the Pug.".format(member)
-        await pug.ctx.send(msg)
+        await pug.channel.send(msg)
 
     async def on_tenth_player(self, pug: Pug):
-        """Fires when there are 10 players waiting in a queue
-         but no match is starting.
-        """
+        """Event for when 10 players have joined a PUG."""
         LOG.debug("Event running for 10th player")
         pug.match_running = True
         kicked_players = await pug.ready_up()
@@ -355,52 +394,54 @@ class R6Pugs:
                 pug.match_running = False
                 needed = 10 - len(pug.queue)
                 plural = " is" if needed == 1 else "s are"
-                await pug.ctx.send(
+                await pug.channel.send(
                     "{} more player{} needed to start the match!"
                     "".format(needed, plural))
                 return
         await pug.run_match()
 
     async def on_pug_match_start(self, match: PugMatch):
-        """Fires when a PUG match starts."""
-        ctx = match.ctx
-        LOG.debug("Match starting; #%s in %s", ctx.channel, ctx.guild)
-        await ctx.send("The match is starting!")
+        """Event for a PUG match starting."""
+        channel = match.channel
+        LOG.debug("Match starting; #%s in %s", channel, channel.guild)
+        await channel.send("The match is starting!")
         await match.send_summary()
 
     async def on_pug_match_end(self, match: PugMatch):
-        """Fires when a PUG match ends."""
-        ctx = match.ctx
-        LOG.debug("Match ending; #%s in %s", ctx.channel, ctx.guild)
-        await ctx.send("The match has ended.")
+        """Event for a PUG match ending."""
+        channel = match.channel
+        LOG.debug("Match ending; #%s in %s", channel, channel.guild)
+        await channel.send("The match has ended.")
         await match.send_summary()
-        pug = self.get_pug(ctx.channel)
+        pug = self.get_pug(channel)
         if len(pug.queue) >= 10:
-            await ctx.send(
-                "There will now be a 1 minute break before the next match starts."
-            )
+            await channel.send(
+                "There will now be a 1 minute break before the next match"
+                " starts.")
 
             def _allow_match(pug: Pug):
                 pug.match_running = False
 
-            ctx.bot.loop.call_later(58, _allow_match, pug)
-            ctx.bot.loop.call_later(60, pug.check_tenth_player)
+            match.bot.loop.call_later(58, _allow_match, pug)
+            match.bot.loop.call_later(60, pug.check_tenth_player)
         losing_score = min(score for score in match.final_score)
         losing_team_idx = match.final_score.index(losing_score)
         losing_team = match.teams[losing_team_idx]
         if pug.settings["losers_leave"] and match.final_score is not None:
-            await ctx.send(
+            await channel.send(
                 "Losers are being removed from the PUG, they may use"
-                " `{}pug join #{}` to rejoin the queue."
-                "".format(ctx.prefix, ctx.channel.name))
+                " `!pug join` to rejoin the queue.")
             for player in losing_team:
                 pug.remove_member(player)
 
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
-        """Fires when a text channel is deleted and ends any PUGs which it may
-         have been running in it.
+        """Event for a guild channel being deleted.
+
+        If the guild channel is a PUG channel or category, it  will end the
+        PUG running there.
         """
-        if not isinstance(channel, discord.TextChannel):
+        if not isinstance(channel,
+                          (discord.TextChannel, discord.CategoryChannel)):
             return
         pug = self.get_pug(channel)
         if pug is not None and pug in self.pugs:
@@ -410,7 +451,7 @@ class R6Pugs:
         self.bot.loop.create_task(unload_extensions(self.bot, self.conf))
 
 
-async def load_extensions(bot: Red, conf: Config):
+async def load_extensions(bot, conf: Config):
     """Load extensions in the `conf.loaded_extensions` list."""
     loaded = await conf.loaded_extensions()
     for extension in loaded:
@@ -426,7 +467,7 @@ async def load_extensions(bot: Red, conf: Config):
     await conf.loaded_extensions.set(loaded)
 
 
-async def unload_extensions(bot: Red, conf: Config):
+async def unload_extensions(bot, conf: Config):
     """Unload extensions in the `conf.loaded_extensions` list."""
     loaded = await conf.loaded_extensions()
     for extension in loaded:

@@ -1,4 +1,5 @@
-"""
+"""Notifications extension for R6Pugs.
+
 This extension allows users to stay notified of PUGs starting in
 various different ways.
 """

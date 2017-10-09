@@ -1,7 +1,6 @@
 """Module for a PuG match."""
 from typing import Tuple, List
 import discord
-from discord.ext import commands
 from redbot.core.utils.chat_formatting import box
 
 __all__ = ["PugMatch"]
@@ -11,20 +10,22 @@ class PugMatch:
     """Class to represent a PuG match."""
 
     def __init__(self,
-                 ctx: commands.Context,
+                 bot,
+                 channel: discord.TextChannel,
                  teams: Tuple[List[discord.Member]],
                  map_: str):
-        self.ctx = ctx
+        self.bot = bot
+        self.channel = channel
         self.teams = teams
         self.map = map_
         self.scores = ([], [])
         self.final_score = None
-        ctx.bot.dispatch("pug_match_start", self)
+        bot.dispatch("pug_match_start", self)
 
     async def send_summary(self):
         """Send a summary of this PuG match."""
         embed = discord.Embed(
-            title="Match Summary", description=self.ctx.channel.mention)
+            title="Match Summary", description=self.channel.mention)
         embed.add_field(name="Map", value=self.map, inline=False)
         embed.add_field(name="Blue Team", value=self._team_str(0))
         embed.add_field(name="Orange Team", value=self._team_str(1))
@@ -36,14 +37,21 @@ class PugMatch:
                 score = ("Still waiting on a player from each"
                          " team to enter a matching score.")
             embed.add_field(name="Score", value=score, inline=False)
-        await self.ctx.send(embed=embed)
+        await self.channel.send(embed=embed)
 
     def _team_str(self, team_idx: int):
         team_str = (p.display_name for p in self.teams[team_idx])
         return box("+" + "\n+".join(team_str), lang="diff")
 
     def submit_score(self, score: Tuple[int], player: discord.Member):
-        """Submit a score with (point for, points against)"""
+        """Submit a player's team's score for the match.
+
+        Parameters
+        ----------
+        score: Tuple[int]
+            A tuple of ints in the form (rounds for, rounds against).
+
+        """
         if self._scores_settled():
             return
         team = next((t for t in self.teams if player in t), None)
@@ -66,7 +74,7 @@ class PugMatch:
 
     def end_match(self):
         """End this PuG match."""
-        self.ctx.bot.dispatch("pug_match_end", self)
+        self.bot.dispatch("pug_match_end", self)
 
     def has_member(self, member: discord.Member):
         """Check if a member is a part of one of this match's teams."""

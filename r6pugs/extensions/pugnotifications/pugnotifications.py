@@ -4,13 +4,14 @@ from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
 from redbot.core import Config
-from r6pugs import LOG, UNIQUE_ID, Pug
+from r6pugs import UNIQUE_ID, Pug
 
 __all__ = ["BadTimeExpr", "PugNotifications"]
 
 
 class BadTimeExpr(Exception):
     """Bad time expression passed."""
+
     pass
 
 
@@ -83,7 +84,9 @@ class PugNotifications:
     async def sub_next(self, ctx: commands.Context, duration: str):
         """Get notified for a period of time.
 
-        Time specification is any combination of numbers with the units s, m, h."""
+        Time specification is any combination of numbers with the
+        units s, m, h.
+        """
         role = await self.get_role(ctx.guild)
         if role is None:
             await ctx.send("The PUG role for this server has not been set.")
@@ -149,11 +152,14 @@ class PugNotifications:
         await ctx.send("Done.")
 
     async def on_pug_start(self, pug: Pug):
-        """Fires when a PUG starts and assigns the PUG role
-         to any members who requested to be notified whilst
-         online. Then it mentions.
+        """Event for a PUG starting.
+
+        This method announces the PUG to all PUG subscribers.
+
+        Before announcing, the notifications role will be applied to any online
+        users, if they requested to be notified whilst online.
         """
-        guild = pug.ctx.guild
+        guild = pug.channel.guild
         role = await self.get_role(guild)
         if role is None:
             return
@@ -164,13 +170,12 @@ class PugNotifications:
             cooldown = timedelta(seconds=cooldown)
             if datetime.now() < last + cooldown:
                 return
-        LOG.debug("Members are being notified of PUG")
         now = datetime.now().timestamp()
         await self.conf.guild(guild).last_mention.set(now)
         member = next(iter(guild.members))
         all_dict = await self.conf.member(member).all_from_kind()
         later = 5 * 60
-        loop = pug.ctx.bot.loop
+        loop = pug.bot.loop
         for member_id, settings in all_dict.items():
             if not isinstance(settings, dict):
                 continue  # Some weird bug with config
@@ -181,7 +186,7 @@ class PugNotifications:
                     loop.call_later(later, loop.create_task,
                                     member.remove_roles(role))
                     later += 2
-        await pug.ctx.send(
+        await pug.channel.send(
             "Paging {0.mention} - a PUG has started here!".format(role))
 
     async def get_role(self, guild: discord.Guild):
