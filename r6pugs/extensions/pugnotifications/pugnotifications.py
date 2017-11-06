@@ -53,7 +53,7 @@ class PugNotifications:
     async def subpugs(self, ctx: commands.Context):
         """Manage PUG notifications."""
         if not ctx.invoked_subcommand:
-            await ctx.bot.send_cmd_help(ctx)
+            await ctx.send_help()
 
     @subpugs.command(name="always")
     async def sub_always(self, ctx: commands.Context):
@@ -125,7 +125,7 @@ class PugNotifications:
     async def pugsubset(self, ctx: commands.Context):
         """Manage settings for the PugNotifications cog."""
         if not ctx.invoked_subcommand:
-            await ctx.bot.send_cmd_help(ctx)
+            await ctx.send_help()
 
     @pugsubset.command(name="role")
     async def _set_role(self, ctx: commands.Context, *, role: discord.Role):
@@ -173,7 +173,7 @@ class PugNotifications:
         now = datetime.now().timestamp()
         await self.conf.guild(guild).last_mention.set(now)
         member = next(iter(guild.members))
-        all_dict = await self.conf.member(member).all_from_kind()
+        all_dict = await self.conf.all_members(guild)
         later = 5 * 60
         loop = pug.bot.loop
         for member_id, settings in all_dict.items():

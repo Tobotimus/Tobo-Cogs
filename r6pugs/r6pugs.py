@@ -52,7 +52,7 @@ class R6Pugs:
     async def pug(self, ctx: commands.Context):
         """Manage PUGs."""
         if ctx.invoked_subcommand is None:
-            await ctx.bot.send_cmd_help(ctx)
+            await ctx.send_help()
 
     @pug.command(name="start")
     async def _pug_start(self, ctx: commands.Context):
@@ -183,7 +183,7 @@ class R6Pugs:
     async def pugext(self, ctx: commands.Context):
         """Manage extensions to R6Pugs."""
         if not ctx.invoked_subcommand:
-            await ctx.bot.send_cmd_help(ctx)
+            await ctx.send_help()
             await self._list_extensions(ctx)
             return
 
