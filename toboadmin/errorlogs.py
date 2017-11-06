@@ -26,7 +26,7 @@ class ErrorLogs:
     async def errorlogs(self, ctx: commands.Context):
         """Manage error logs."""
         if not ctx.invoked_subcommand:
-            await ctx.bot.send_cmd_help(ctx)
+            await ctx.send_help()
             settings = self.conf.channel(ctx.channel)
             await ctx.send(
                 box("Enabled in this channel: {}\n"
@@ -62,7 +62,7 @@ class ErrorLogs:
         the right channels."""
         if isinstance(error, IGNORED_COMMANDS):
             return
-        all_dict = await self.conf.channel(ctx.channel).all_from_kind()
+        all_dict = await self.conf.all_channels()
         if not all_dict:
             return
         channels, all_settings = _get_channels_and_settings(ctx, all_dict)

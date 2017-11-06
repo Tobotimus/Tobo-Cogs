@@ -33,7 +33,7 @@ class WelcomeCount:
     async def wcount(self, ctx: commands.Context):
         """Manage settings for WelcomeCount."""
         if not ctx.invoked_subcommand:
-            await ctx.bot.send_cmd_help(ctx)
+            await ctx.send_help()
             channel = ctx.channel
             settings = self.conf.channel(channel)
             if await settings.enabled():

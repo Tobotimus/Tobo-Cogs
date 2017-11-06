@@ -24,7 +24,7 @@ class Autorole:
 
         I must have the Manage Roles permission in order for this to work."""
         if not ctx.invoked_subcommand:
-            await ctx.bot.send_cmd_help(ctx)
+            await ctx.send_help()
             settings = self.conf.guild(ctx.guild)
             role = await settings.role()
             if role is not None:
