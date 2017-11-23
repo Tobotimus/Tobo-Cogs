@@ -61,7 +61,6 @@ class Strikes:
         settings = self.conf.member(member)
         strikes = await settings.strikes()
         strikes.append(new_strike)
-        print(strikes)
         await settings.strikes.set(strikes)
         await self.create_case(member, date, reason, moderator)
         return strikes
