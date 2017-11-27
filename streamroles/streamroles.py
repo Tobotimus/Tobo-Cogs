@@ -7,6 +7,7 @@ from redbot.core import Config, checks
 from redbot.core.utils.chat_formatting import box
 
 from .errors import *
+from .log import log
 
 UNIQUE_ID = 0x923476AF
 
@@ -19,20 +20,12 @@ class StreamRoles:
     CHECK_DELAY = 15
 
     def __init__(self):
-        self.conf = Config.get_conf(self, force_registration=True,
-                                    identifier=UNIQUE_ID)
-        self.conf.register_global(
-            twitch_clientid=None
-        )
+        self.conf = Config.get_conf(
+            self, force_registration=True, identifier=UNIQUE_ID)
+        self.conf.register_global(twitch_clientid=None)
         self.conf.register_guild(
-            streamer_role=None,
-            game_whitelist=[],
-            mode="blacklist"
-        )
-        self.conf.register_member(
-            blacklisted=False,
-            whitelisted=False
-        )
+            streamer_role=None, game_whitelist=[], mode="blacklist")
+        self.conf.register_member(blacklisted=False, whitelisted=False)
         self.task = None
 
     @classmethod
@@ -51,7 +44,6 @@ class StreamRoles:
         token = await streams.db.tokens.get_attr("TwitchStream")
         if token:
             await self.conf.twitch_clientid.set(token)
-
 
     @commands.group()
     async def streamrole(self, ctx: commands.Context):
@@ -86,7 +78,10 @@ class StreamRoles:
         await ctx.tick()
 
     @whitelist.command(name="remove")
-    async def white_remove(self, ctx: commands.Context, *, user: discord.Member):
+    async def white_remove(self,
+                           ctx: commands.Context,
+                           *,
+                           user: discord.Member):
         """Remove a member from the whitelist."""
         await self.conf.member(user).whitelisted.set(False)
         await ctx.tick()
@@ -115,7 +110,10 @@ class StreamRoles:
         await ctx.tick()
 
     @blacklist.command(name="remove")
-    async def black_remove(self, ctx: commands.Context, *, user: discord.Member):
+    async def black_remove(self,
+                           ctx: commands.Context,
+                           *,
+                           user: discord.Member):
         """Remove a member from the blacklist."""
         await self.conf.member(user).blacklisted.set(False)
         await ctx.tick()
@@ -128,6 +126,66 @@ class StreamRoles:
             await ctx.send("The blacklist is empty.")
             return
         await ctx.send(box(", ".join(blacklist)))
+
+    @checks.admin_or_permissions(manage_roles=True)
+    @commands.guild_only()
+    @streamrole.group()
+    async def games(self, ctx: commands.Context):
+        """Manage the game whitelist.
+
+        Adding games to the whitelist will make the bot only add the streamrole
+        to members streaming those games. If the game whitelist is empty, the
+        game being streamed won't be checked before adding the streamrole.
+        """
+        if ctx.invoked_subcommand == self.games:
+            await ctx.send_help()
+
+    @games.command(name="add")
+    async def games_add(self, ctx: commands.Context, *, game: str):
+        """Add a game to the game whitelist."""
+        whitelist = await self.conf.guild(ctx.guild).game_whitelist()
+        whitelist.append(game)
+        await self.conf.guild(ctx.guild).game_whitelist.set(whitelist)
+        await ctx.tick()
+
+    @games.command(name="remove")
+    async def games_remove(self, ctx: commands.Context, *, game: str):
+        """Remove a game from the game whitelist."""
+        whitelist = await self.conf.guild(ctx.guild).game_whitelist()
+        try:
+            whitelist.remove(game)
+        except ValueError:
+            await ctx.send("That game is not in the whitelist.")
+        else:
+            await self.conf.guild(ctx.guild).game_whitelist.set(whitelist)
+            await ctx.tick()
+
+    @games.command(name="show")
+    async def games_show(self, ctx: commands.Context):
+        """Show the game whitelist for this server."""
+        whitelist = await self.conf.guild(ctx.guild).game_whitelist()
+        if not whitelist:
+            await ctx.send("The whitelist is empty - all games are allowed.")
+            return
+        await ctx.send(box(", ".join(whitelist)))
+
+    @games.command(name="clear")
+    async def games_clear(self, ctx: commands.Context):
+        """Clear the game whitelist for this server."""
+        await ctx.send("This will clear the game whitelist for this server. "
+                       "Are you sure you want to do this? (Y/N)")
+        try:
+            message = await ctx.bot.wait_for(
+                "message",
+                check=
+                lambda m: m.author == ctx.author and m.channel == ctx.channel)
+        except asyncio.TimeoutError:
+            message = None
+        if message is not None and message.content.lower() in ("y", "yes"):
+            await self.conf.guild(ctx.guild).game_whitelist.set([])
+            await ctx.send("Done - The game whitelist has been cleared.")
+        else:
+            await ctx.send("The action was cancelled.")
 
     async def _get_filter_list(self, guild: discord.Guild, mode: str):
         all_member_data = await self.conf.all_members(guild)
@@ -199,9 +257,13 @@ class StreamRoles:
                     games = await settings.game_whitelist()
                     if not games or data["game"] in games:
                         if not has_role:
+                            log.debug("Adding streamrole %s to member %s",
+                                      role.id, member.id)
                             await member.add_roles(role)
                         continue
             if has_role:
+                log.debug("Removing streamrole %s to member %s", role.id,
+                          member.id)
                 await member.remove_roles(role)
 
     def _get_stream_handle(self, member: discord.Member):
@@ -257,8 +319,10 @@ class StreamRoles:
 
     async def _is_allowed(self, member: discord.Member):
         mode = await self.conf.guild(member.guild).mode()
-        mode = mode + "ed"
-        return await self.conf.member(member).get_attr(mode)
+        listed = await self.conf.member(member).get_attr(mode + "ed")
+        if mode == "blacklist":
+            return not listed
+        return listed
 
     def __unload(self):
         if self.task is not None:
