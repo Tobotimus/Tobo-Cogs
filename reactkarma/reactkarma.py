@@ -10,9 +10,11 @@ from unicodedata import name, lookup
 
 FOLDER_PATH = "data/reactkarma"
 KARMA_PATH = "{}/karma.json".format(FOLDER_PATH)
+TOPKARMA_PATH = "{}/topkarma.json".format(FOLDER_PATH)
 SETTINGS_PATH = "{}/settings.json".format(FOLDER_PATH)
 DOWNVOTE = "downvote"
 UPVOTE = "upvote"
+KARMACHANNEL = "channel"
 
 class ReactKarma():
     """Keep track of karma for all users in the bot's scope. 
@@ -23,6 +25,7 @@ class ReactKarma():
     def __init__(self, bot):
         self.bot = bot
         self.karma = dataIO.load_json(KARMA_PATH)
+        self.topkarma = dataIO.load_json(TOPKARMA_PATH)
         self.settings = dataIO.load_json(SETTINGS_PATH)
         self.setting_emojis = False # For knowing when emojis are being added/removed
 
@@ -148,10 +151,61 @@ class ReactKarma():
             except KeyError:
                 await self.bot.say("{} has never received any karma!".format(user.display_name))
 
+    @commands.group(pass_context=True)
+    @checks.mod_or_permissions(administrator=True)
+    async def topkarma(self, ctx):
+        """Adjust hangman settings"""
+        if ctx.invoked_subcommand is None:
+            await self.bot.send_cmd_help(ctx)
+
+            
+    @topkarma.command(name="setchannel", pass_context=True)
+    async def topkarma_set_channel(self, ctx, channel: discord.Channel=None):
+        """"Set's a 'top' karma channel. 
+        
+        Disables karma channel if channel is left blank"""
+        if server.id not in self.settings: 
+                self.settings[server.id] = {}
+                
+        if channel is None:
+            self.settings[server.id][KARMACHANNEL] = None
+        else:
+            self.settings[server.id][KARMACHANNEL] = channel.ID
+        
+        dataIO.save_json(SETTINGS_PATH, self.settings)
+        
+    @topkarma.command(name="setminimum", pass_context=True)
+    @checks.is_owner()
+    async def topkarma_set_minimum(self, ctx, minkarma=3):
+        """"Set's the 'top' karma minimum. Default is 3"""
+        if server.id not in self.settings: 
+                self.settings[server.id] = {}
+
+        self.settings[server.id]["MINKARMA"] = minkarma
+
+        dataIO.save_json(SETTINGS_PATH, self.settings)
+        
+    @topkarma.command(name="blacklist", pass_context=True)
+    @checks.is_owner()
+    async def topkarma_blacklist(self, ctx, channel: discord.Channel=None *morechannels: discord.Channel):
+        """"Set's the 'top' karma blacklist of channels
+        
+        Disables blacklist if channel(s) left blank"""
+        if server.id not in self.settings: 
+                self.settings[server.id] = {}
+        
+        if channel is None:
+            self.settings[server.id]["BLACKLIST"] = []
+        else:
+            self.settings[server.id]["BLACKLIST"] = [channel.id] + [moreid.id for moreid in morechannels]
+        dataIO.save_json(SETTINGS_PATH, self.settings)
+        
+ 
     async def _reaction_added(self, reaction: discord.Reaction, user: discord.User):
         if self.setting_emojis: return # Don't change karma whilst adding/removing emojis
         server = reaction.message.server
         author = reaction.message.author
+        message = reaction.message
         if author == user: return # Users can't change their own karma
         emoji = reaction.emoji
         if isinstance(emoji, discord.Emoji):
@@ -160,9 +214,9 @@ class ReactKarma():
             emoji = name(emoji)
         try:
             if emoji == self.settings[server.id][UPVOTE]:
-                self._add_karma(author.id, 1)
+                self._add_karma(author.id, 1, message)
             elif emoji == self.settings[server.id][DOWNVOTE]:
-                self._add_karma(author.id, -1)
+                self._add_karma(author.id, -1, message)
         except:
             return
 
@@ -170,6 +224,7 @@ class ReactKarma():
         if self.setting_emojis: return # Don't change karma whilst adding/removing emojis
         server = reaction.message.server
         author = reaction.message.author
+        message = reaction.message
         if author == user: return # Users can't change their own karma
         emoji = reaction.emoji
         if isinstance(emoji, discord.Emoji):
@@ -178,9 +233,9 @@ class ReactKarma():
             emoji = name(emoji)
         try:
             if emoji == self.settings[server.id][UPVOTE]:
-                self._add_karma(author.id, -1)
+                self._add_karma(author.id, -1, message)
             elif emoji == self.settings[server.id][DOWNVOTE]:
-                self._add_karma(author.id, 1)
+                self._add_karma(author.id, 1, message)
         except:
             return
 
@@ -208,12 +263,30 @@ class ReactKarma():
                     return None
             return emoji
 
-    def _add_karma(self, user_id, amount: int):
+    def _add_karma(self, user_id, amount: int, message: discord.Message):
+        if message_id in self.settings["BLACKLIST"]:
+            return
+            
         self.karma = dataIO.load_json(KARMA_PATH)
         if user_id not in self.karma:
             self.karma[user_id] = 0
         self.karma[user_id] += amount
         dataIO.save_json(KARMA_PATH, self.karma)
+        
+        if not self.settings[server.id][KARMACHANNEL]:
+            return
+
+        self.topkarma = dataIO.load_json(TOPKARMA_PATH) # Why is this stuff reloaded all the time
+
+        if message.id not in self.topkarma:
+            self.topkarma[message.id]["KARMA"] = 0            
+        self.topkarma[message.id]["KARMA"] += amount
+        
+        if self.topkarma[message.id]["KARMA"] >= self.settings["MINKARMA"]:
+            self._top_karma(message)
+            
+    def _top_karma(self, message: discord.Message, channel: discord.Channel, author: discord.Member):
+        
 
     def _get_all_members(self):
         """Get a list of members which have karma.
@@ -239,6 +312,8 @@ def check_files():
         dataIO.save_json(KARMA_PATH, {})
     if not dataIO.is_valid_json(SETTINGS_PATH):
         dataIO.save_json(SETTINGS_PATH, {})
+    if not dataIO.is_valid_json(TOPKARMA_PATH):
+        dataIO.save_json(TOPKARMA_PATH, {})
 
 def setup(bot):
     check_folders()
