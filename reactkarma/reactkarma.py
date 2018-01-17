@@ -187,7 +187,11 @@ class ReactKarma():
         server = ctx.message.server
         if server.id not in self.settings: 
                 self.settings[server.id] = {}
-
+        
+        if minkarma<=0 or >50:
+            await self.bot.say("Too high/low!")
+            return
+            
         self.settings[server.id]["MINKARMA"] = minkarma
 
         dataIO.save_json(SETTINGS_PATH, self.settings)
