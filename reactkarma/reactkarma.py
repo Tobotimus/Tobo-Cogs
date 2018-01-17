@@ -8,6 +8,9 @@ from cogs.utils.dataIO import dataIO
 from cogs.utils.chat_formatting import inline, pagify, box
 from unicodedata import name, lookup
 
+import imghdr
+
+
 FOLDER_PATH = "data/reactkarma"
 KARMA_PATH = "{}/karma.json".format(FOLDER_PATH)
 TOPKARMA_PATH = "{}/topkarma.json".format(FOLDER_PATH)
@@ -214,9 +217,9 @@ class ReactKarma():
             emoji = name(emoji)
         try:
             if emoji == self.settings[server.id][UPVOTE]:
-                self._add_karma(author.id, 1, message)
+                await self._add_karma(author.id, 1, message)
             elif emoji == self.settings[server.id][DOWNVOTE]:
-                self._add_karma(author.id, -1, message)
+                await self._add_karma(author.id, -1, message)
         except:
             return
 
@@ -233,9 +236,9 @@ class ReactKarma():
             emoji = name(emoji)
         try:
             if emoji == self.settings[server.id][UPVOTE]:
-                self._add_karma(author.id, -1, message)
+                await self._add_karma(author.id, -1, message)
             elif emoji == self.settings[server.id][DOWNVOTE]:
-                self._add_karma(author.id, 1, message)
+                await self._add_karma(author.id, 1, message)
         except:
             return
 
@@ -263,8 +266,8 @@ class ReactKarma():
                     return None
             return emoji
 
-    def _add_karma(self, user_id, amount: int, message: discord.Message):
-        if message_id in self.settings["BLACKLIST"]:
+    async def _add_karma(self, user_id, amount: int, message: discord.Message):
+        if message.id in self.settings["BLACKLIST"]:
             return
             
         self.karma = dataIO.load_json(KARMA_PATH)
@@ -282,11 +285,45 @@ class ReactKarma():
             self.topkarma[message.id]["KARMA"] = 0            
         self.topkarma[message.id]["KARMA"] += amount
         
-        if self.topkarma[message.id]["KARMA"] >= self.settings["MINKARMA"]:
+        if self.topkarma[message.id]["KARMA"] >= self.settings["MINKARMA"] or self.topkarma[message.id]["BOARD"]:
             self._top_karma(message)
-            
-    def _top_karma(self, message: discord.Message, channel: discord.Channel, author: discord.Member):
         
+        dataIO.save_json(TOPKARMA_PATH, self.topkarma)
+            
+    async def _top_karma(self, message: discord.Message):
+        if self.topkarma[message.id]["BOARD"]:  # Already on the board
+            channel = message.server.get_channel(self.settings[message.server.id][KARMACHANNEL])
+            boardmessage = await self.bot.get_message(channel, self.topkarma[message.id]["BOARD"])
+            
+            if self.topkarma[message.id]["KARMA"] >= self.settings["MINKARMA"]: # Still high enough
+                embed = self._get_embed(message)
+                await self.bot.edit_message(message, embed=embed)
+                
+            else: # Not high enough, delete
+                self.topkarma[message.id].pop("BOARD", 0)
+                await self.bot.delete_message(message)
+                
+            
+        else:
+            embed = self._get_embed(message)
+
+            channel = message.server.get_channel(self.settings[message.server.id][KARMACHANNEL])
+            boardmessage = await self.bot.send_message(channel, embed=embed)
+            self.topkarma[message.id]["BOARD"] = boardmessage.id
+            
+    def _get_embed(self, message: discord.Message):
+        upvote = self._get_emoji(message.server, UPVOTE)
+        embed=discord.Embed(title="{} **{}** | Found in {}".format(upvote, self.topkarma[message.id]["KARMA"], message.channel.mention , description=message.content)
+            embed.set_author(name=message.author.nickname,icon_url=message.author.avatar_url)
+            if message.attachments:
+                if imghdr.what(message.attachments[0].url) in ['gif','jpeg','png','webp']:
+                    embed.set_image(url=message.attachments[0].url)
+                else:
+                    embed.add_field(name=Attachment, value=message.attachments[0].url, inline=False)
+
+            embed.set_footer(text=message.timestamp)
+        
+        return embed
 
     def _get_all_members(self):
         """Get a list of members which have karma.
