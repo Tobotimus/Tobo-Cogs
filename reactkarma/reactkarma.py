@@ -157,14 +157,14 @@ class ReactKarma():
     @commands.group(name="topkarma", pass_context=True)
     @checks.is_owner()
     async def top_karma(self, ctx):
-        """Adjust top_karma settings"""
+        """Adjust 'top' karma settings"""
         if ctx.invoked_subcommand is None:
             await self.bot.send_cmd_help(ctx)
 
             
     @top_karma.command(name="setchannel", pass_context=True)
     async def top_karma_set_channel(self, ctx, channel: discord.Channel=None):
-        """"Set's a 'top' karma channel. 
+        """Set's a 'top' karma channel. 
         
         Disables karma channel if channel is left blank"""
         if server.id not in self.settings: 
@@ -180,7 +180,7 @@ class ReactKarma():
     @top_karma.command(name="setminimum", pass_context=True)
     @checks.is_owner()
     async def top_karma_set_minimum(self, ctx, minkarma=3):
-        """"Set's the 'top' karma minimum. Default is 3"""
+        """Set's the 'top' karma minimum. Default is 3"""
         if server.id not in self.settings: 
                 self.settings[server.id] = {}
 
@@ -191,7 +191,7 @@ class ReactKarma():
     @top_karma.command(name="blacklist", pass_context=True)
     @checks.is_owner()
     async def top_karma_blacklist(self, ctx, channel: discord.Channel=None, *morechannels: discord.Channel):
-        """"Set's the 'top' karma blacklist of channels
+        """Set's the 'top' karma blacklist of channels
         
         Disables blacklist if channel(s) left blank"""
         if server.id not in self.settings: 
