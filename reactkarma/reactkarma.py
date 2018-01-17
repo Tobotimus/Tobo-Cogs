@@ -178,6 +178,8 @@ class ReactKarma():
         
         dataIO.save_json(SETTINGS_PATH, self.settings)
         
+        await self.bot.say("Success")
+        
     @top_karma.command(name="setminimum", pass_context=True)
     @checks.is_owner()
     async def top_karma_set_minimum(self, ctx, minkarma=3):
@@ -189,6 +191,8 @@ class ReactKarma():
         self.settings[server.id]["MINKARMA"] = minkarma
 
         dataIO.save_json(SETTINGS_PATH, self.settings)
+        
+        await self.bot.say("Success")
         
     @top_karma.command(name="blacklist", pass_context=True)
     @checks.is_owner()
@@ -205,6 +209,8 @@ class ReactKarma():
         else:
             self.settings[server.id]["BLACKLIST"] = [channel.id] + [moreid.id for moreid in morechannels]
         dataIO.save_json(SETTINGS_PATH, self.settings)
+        
+        await self.bot.say("Success")
         
  
     async def _reaction_added(self, reaction: discord.Reaction, user: discord.User):
