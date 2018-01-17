@@ -154,7 +154,7 @@ class ReactKarma():
             except KeyError:
                 await self.bot.say("{} has never received any karma!".format(user.display_name))
 
-    @commands.group(pass_context=True)
+    @commands.group(name="topkarma", pass_context=True)
     @checks.is_owner()
     async def topkarma(self, ctx):
         """Adjust topkarma settings"""
