@@ -167,6 +167,7 @@ class ReactKarma():
         """Set's a 'top' karma channel. 
         
         Disables karma channel if channel is left blank"""
+        server = ctx.message.server
         if server.id not in self.settings: 
                 self.settings[server.id] = {}
                 
@@ -181,6 +182,7 @@ class ReactKarma():
     @checks.is_owner()
     async def top_karma_set_minimum(self, ctx, minkarma=3):
         """Set's the 'top' karma minimum. Default is 3"""
+        server = ctx.message.server
         if server.id not in self.settings: 
                 self.settings[server.id] = {}
 
@@ -194,6 +196,7 @@ class ReactKarma():
         """Set's the 'top' karma blacklist of channels
         
         Disables blacklist if channel(s) left blank"""
+        server = ctx.message.server
         if server.id not in self.settings: 
                 self.settings[server.id] = {}
         
