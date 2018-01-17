@@ -174,7 +174,7 @@ class ReactKarma():
         if channel is None:
             self.settings[server.id][KARMACHANNEL] = None
         else:
-            self.settings[server.id][KARMACHANNEL] = channel.ID
+            self.settings[server.id][KARMACHANNEL] = channel.id
         
         dataIO.save_json(SETTINGS_PATH, self.settings)
         
