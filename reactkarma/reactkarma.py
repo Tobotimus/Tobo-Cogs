@@ -190,7 +190,7 @@ class ReactKarma():
         
     @topkarma.command(name="blacklist", pass_context=True)
     @checks.is_owner()
-    async def topkarma_blacklist(self, ctx, channel: discord.Channel=None *morechannels: discord.Channel):
+    async def topkarma_blacklist(self, ctx, channel: discord.Channel=None, *morechannels: discord.Channel):
         """"Set's the 'top' karma blacklist of channels
         
         Disables blacklist if channel(s) left blank"""
