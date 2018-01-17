@@ -133,7 +133,7 @@ class ReactKarma():
     @commands.command(name="resetkarma", pass_context=True)
     @checks.is_owner()
     async def reset_karma(self, ctx, user: discord.Member=None):
-        """"Resets a user's karma. 
+        """Resets a user's karma. 
         
         Resets karma of all users if user is left blank"""
         if user is None:
@@ -155,9 +155,9 @@ class ReactKarma():
                 await self.bot.say("{} has never received any karma!".format(user.display_name))
 
     @commands.group(pass_context=True)
-    @checks.mod_or_permissions(administrator=True)
+    @checks.is_owner()
     async def topkarma(self, ctx):
-        """Adjust hangman settings"""
+        """Adjust topkarma settings"""
         if ctx.invoked_subcommand is None:
             await self.bot.send_cmd_help(ctx)
 
