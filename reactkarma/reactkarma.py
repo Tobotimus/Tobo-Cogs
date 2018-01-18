@@ -314,7 +314,7 @@ class ReactKarma():
         
         if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or self.topkarma[message.id]["BOARD"]:
             await self.bot.send_message(server.get_channel("325869621662056448"), "Top karma triggered")
-            self._top_karma(message)
+            await self._top_karma(message)
         
         dataIO.save_json(TOPKARMA_PATH, self.topkarma)
             
