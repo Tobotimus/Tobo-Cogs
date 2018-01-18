@@ -312,7 +312,7 @@ class ReactKarma():
         
         await self.bot.send_message(server.get_channel("325869621662056448"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"]))
         
-        if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or self.topkarma[message.id]["BOARD"]:
+        if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or "BOARD" in self.topkarma[message.id]:
             await self.bot.send_message(server.get_channel("325869621662056448"), "Top karma triggered")
             await self._top_karma(message)
         
@@ -320,7 +320,7 @@ class ReactKarma():
             
     async def _top_karma(self, message: discord.Message):
         server = message.server
-        if self.topkarma[message.id]["BOARD"]:  # Already on the board
+        if "BOARD" in self.topkarma[message.id]:  # Already on the board
             await self.bot.send_message(server.get_channel("325869621662056448"), "Already on board trigger")
             channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
             boardmessage = await self.bot.get_message(channel, self.topkarma[message.id]["BOARD"])
