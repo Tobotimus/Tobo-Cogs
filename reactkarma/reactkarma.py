@@ -164,7 +164,7 @@ class ReactKarma():
                 await self.bot.say("{} has never received any karma!".format(user.display_name))
 
     @commands.group(name="topkarma", pass_context=True)
-    @checks.is_owner()
+    @checks.admin_or_permissions(administrator=True)
     async def top_karma(self, ctx):
         """Adjust 'top' karma settings"""
         if ctx.invoked_subcommand is None:
