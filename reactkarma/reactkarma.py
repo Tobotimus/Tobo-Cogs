@@ -353,8 +353,8 @@ class ReactKarma():
                 embed.set_image(url=message.attachments[0].url)
             else:
                 embed.add_field(name=Attachment, value=message.attachments[0].url, inline=False)
-
-            embed.set_footer(icon_url = upvote.url, text="{} | Found in {}".format(message.timestamp, message.channel.mention))
+            embed.set_footer(text='id 123', icon_url='http://cache1.www.gametracker.com/images/game_icons16/dota2.png')
+            # embed.set_footer(icon_url = upvote.url, text="{} | Found in {}".format(message.timestamp, message.channel.mention))
         
         return embed
 
