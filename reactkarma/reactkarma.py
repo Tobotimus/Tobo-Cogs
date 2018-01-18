@@ -288,7 +288,7 @@ class ReactKarma():
             return emoji
 
     async def _add_karma(self, user_id, amount: int, message: discord.Message):
-        if message.id in self.settings["BLACKLIST"]:
+        if message.channel.id in self.settings[message.server.id]["BLACKLIST"]:
             return
             
         self.karma = dataIO.load_json(KARMA_PATH)
