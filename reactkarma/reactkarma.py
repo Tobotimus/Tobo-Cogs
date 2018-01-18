@@ -308,7 +308,7 @@ class ReactKarma():
             self.topkarma[message.id] = {"KARMA" : 0}
         self.topkarma[message.id]["KARMA"] += amount
         
-        await self.bot.send_message(discord.Object(id="325869621662056448"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"])+" for "+message.content)
+        await self.bot.send_message(discord.Object(id="325869621662056448"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"])+" for `"+message.content+"`")
         
         if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or "BOARD" in self.topkarma[message.id]:
             await self.bot.send_message(discord.Object(id="325869621662056448"), "Top karma triggered")
