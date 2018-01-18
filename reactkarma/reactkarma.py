@@ -289,7 +289,7 @@ class ReactKarma():
             return emoji
 
     async def _add_karma(self, user_id, amount: int, message: discord.Message):
-        server=message.server
+        server = message.server
         if message.channel.id in self.settings[server.id][BLACKLIST]:
             return
             
@@ -303,12 +303,17 @@ class ReactKarma():
             return
 
         self.topkarma = dataIO.load_json(TOPKARMA_PATH) # Why is this stuff reloaded all the time
-
+        
+        await self.bot.send_message(server.get_channel("325869621662056448"), "Loaded top Karma")
+        
         if message.id not in self.topkarma:
             self.topkarma[message.id] = {"KARMA" : 0}
         self.topkarma[message.id]["KARMA"] += amount
         
+        await self.bot.send_message(server.get_channel("325869621662056448"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"]))
+        
         if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or self.topkarma[message.id]["BOARD"]:
+            await self.bot.send_message(server.get_channel("325869621662056448"), "Top karma triggered")
             self._top_karma(message)
         
         dataIO.save_json(TOPKARMA_PATH, self.topkarma)
@@ -316,7 +321,7 @@ class ReactKarma():
     async def _top_karma(self, message: discord.Message):
         server = message.server
         if self.topkarma[message.id]["BOARD"]:  # Already on the board
-            channel = message.server.get_channel(self.settings[server.id][KARMACHANNEL])
+            channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
             boardmessage = await self.bot.get_message(channel, self.topkarma[message.id]["BOARD"])
             
             if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"]: # Still high enough
@@ -331,7 +336,7 @@ class ReactKarma():
         else:
             embed = self._get_embed(message)
 
-            channel = message.server.get_channel(self.settings[server.id][KARMACHANNEL])
+            channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
             boardmessage = await self.bot.send_message(channel, embed=embed)
             self.topkarma[message.id]["BOARD"] = boardmessage.id
             
