@@ -328,7 +328,7 @@ class ReactKarma():
             if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"]: # Still high enough
                 await self.bot.send_message(server.get_channel("325869621662056448"), "Embed edit")
                 embed = self._get_embed(message)
-                await self.bot.edit_message(message, embed=embed)
+                await self.bot.edit_message(boardmessage, embed=embed)
                 
             else: # Not high enough, delete
                 await self.bot.send_message(server.get_channel("325869621662056448"), "Board delete")
