@@ -308,10 +308,10 @@ class ReactKarma():
             self.topkarma[message.id] = {"KARMA" : 0}
         self.topkarma[message.id]["KARMA"] += amount
         
-        await self.bot.send_message(discord.Object(id="325869621662056448"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"])+" for `"+message.content+"`")
+        await self.bot.send_message(discord.Object(id="390927071553126402"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"])+" for `"+message.content+"`")
         
         if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or "BOARD" in self.topkarma[message.id]:
-            await self.bot.send_message(discord.Object(id="325869621662056448"), "Top karma triggered")
+            await self.bot.send_message(discord.Object(id="390927071553126402"), "Top karma triggered")
             await self._top_karma(message)
         
         dataIO.save_json(TOPKARMA_PATH, self.topkarma)
@@ -319,23 +319,23 @@ class ReactKarma():
     async def _top_karma(self, message: discord.Message):
         server = message.server
         if "BOARD" in self.topkarma[message.id]:  # Already on the board
-            await self.bot.send_message(discord.Object(id="325869621662056448"), "Already on board trigger")
+            await self.bot.send_message(discord.Object(id="390927071553126402"), "Already on board trigger")
             channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
             boardmessage = await self.bot.get_message(channel, self.topkarma[message.id]["BOARD"])
             
             if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"]: # Still high enough
-                await self.bot.send_message(discord.Object(id="325869621662056448"), "Embed edit")
+                await self.bot.send_message(discord.Object(id="390927071553126402"), "Embed edit")
                 embed = self._get_embed(message)
                 await self.bot.edit_message(boardmessage, "Found in "+message.channel.mention, embed=embed)
                 
             else: # Not high enough, delete
-                await self.bot.send_message(discord.Object(id="325869621662056448"), "Board delete")
+                await self.bot.send_message(discord.Object(id="390927071553126402"), "Board delete")
                 self.topkarma[message.id].pop("BOARD", 0)
                 await self.bot.delete_message(message)
                 
             
         else:
-            await self.bot.send_message(discord.Object(id="325869621662056448"), "New board post triggered")
+            await self.bot.send_message(discord.Object(id="390927071553126402"), "New board post triggered")
             embed = self._get_embed(message)
 
             channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
