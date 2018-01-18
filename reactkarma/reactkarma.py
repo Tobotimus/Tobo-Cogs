@@ -18,6 +18,7 @@ SETTINGS_PATH = "{}/settings.json".format(FOLDER_PATH)
 DOWNVOTE = "downvote"
 UPVOTE = "upvote"
 KARMACHANNEL = "channel"
+BLACKLIST = "blacklist"
 
 class ReactKarma():
     """Keep track of karma for all users in the bot's scope. 
@@ -217,9 +218,9 @@ class ReactKarma():
             self.settings[server.id] = {}
         
         if channel is None:
-            self.settings[server.id]["BLACKLIST"] = []
+            self.settings[server.id][BLACKLIST] = []
         else:
-            self.settings[server.id]["BLACKLIST"] = [channel.id] + [moreid.id for moreid in morechannels]
+            self.settings[server.id][BLACKLIST] = [channel.id] + [moreid.id for moreid in morechannels]
         dataIO.save_json(SETTINGS_PATH, self.settings)
         
         await self.bot.say("Success")
@@ -288,7 +289,8 @@ class ReactKarma():
             return emoji
 
     async def _add_karma(self, user_id, amount: int, message: discord.Message):
-        if message.channel.id in self.settings[message.server.id]["BLACKLIST"]:
+        server=message.server
+        if message.channel.id in self.settings[server.id][BLACKLIST]:
             return
             
         self.karma = dataIO.load_json(KARMA_PATH)
@@ -306,17 +308,18 @@ class ReactKarma():
             self.topkarma[message.id] = {"KARMA" : 0}
         self.topkarma[message.id]["KARMA"] += amount
         
-        if self.topkarma[message.id]["KARMA"] >= self.settings["MINKARMA"] or self.topkarma[message.id]["BOARD"]:
+        if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or self.topkarma[message.id]["BOARD"]:
             self._top_karma(message)
         
         dataIO.save_json(TOPKARMA_PATH, self.topkarma)
             
     async def _top_karma(self, message: discord.Message):
+        server = message.server
         if self.topkarma[message.id]["BOARD"]:  # Already on the board
-            channel = message.server.get_channel(self.settings[message.server.id][KARMACHANNEL])
+            channel = message.server.get_channel(self.settings[server.id][KARMACHANNEL])
             boardmessage = await self.bot.get_message(channel, self.topkarma[message.id]["BOARD"])
             
-            if self.topkarma[message.id]["KARMA"] >= self.settings["MINKARMA"]: # Still high enough
+            if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"]: # Still high enough
                 embed = self._get_embed(message)
                 await self.bot.edit_message(message, embed=embed)
                 
@@ -328,7 +331,7 @@ class ReactKarma():
         else:
             embed = self._get_embed(message)
 
-            channel = message.server.get_channel(self.settings[message.server.id][KARMACHANNEL])
+            channel = message.server.get_channel(self.settings[server.id][KARMACHANNEL])
             boardmessage = await self.bot.send_message(channel, embed=embed)
             self.topkarma[message.id]["BOARD"] = boardmessage.id
             
