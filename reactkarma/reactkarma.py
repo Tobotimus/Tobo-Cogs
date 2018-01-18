@@ -354,7 +354,7 @@ class ReactKarma():
             else:
                 embed.add_field(name=Attachment, value=message.attachments[0].url, inline=False)
 
-            embed.set_footer(text="{} | Found in {}".format(message.timestamp, message.channel.mention)
+            embed.set_footer(text="{} | Found in {}".format(message.timestamp, message.channel.mention))
         
         return embed
 
