@@ -303,14 +303,12 @@ class ReactKarma():
             return
 
         self.topkarma = dataIO.load_json(TOPKARMA_PATH) # Why is this stuff reloaded all the time
-        
-        await self.bot.send_message(discord.Object(id="325869621662056448"), "Loaded top Karma")
-        
+                
         if message.id not in self.topkarma:
             self.topkarma[message.id] = {"KARMA" : 0}
         self.topkarma[message.id]["KARMA"] += amount
         
-        await self.bot.send_message(discord.Object(id="325869621662056448"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"]))
+        await self.bot.send_message(discord.Object(id="325869621662056448"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"])+" for "+message.content)
         
         if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or "BOARD" in self.topkarma[message.id]:
             await self.bot.send_message(discord.Object(id="325869621662056448"), "Top karma triggered")
@@ -328,7 +326,7 @@ class ReactKarma():
             if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"]: # Still high enough
                 await self.bot.send_message(discord.Object(id="325869621662056448"), "Embed edit")
                 embed = self._get_embed(message)
-                await self.bot.edit_message(boardmessage, message.channel.mention, embed=embed)
+                await self.bot.edit_message(boardmessage, "Found in "+message.channel.mention, embed=embed)
                 
             else: # Not high enough, delete
                 await self.bot.send_message(discord.Object(id="325869621662056448"), "Board delete")
@@ -341,7 +339,7 @@ class ReactKarma():
             embed = self._get_embed(message)
 
             channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
-            boardmessage = await self.bot.send_message(channel, message.channel.mention, embed=embed)
+            boardmessage = await self.bot.send_message(channel, "Found in "+message.channel.mention, embed=embed)
             self.topkarma[message.id]["BOARD"] = boardmessage.id
             
     def _get_embed(self, message: discord.Message):
