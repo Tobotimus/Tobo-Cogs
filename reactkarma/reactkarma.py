@@ -186,9 +186,9 @@ class ReactKarma():
         """Set's the 'top' karma minimum. Default is 3"""
         server = ctx.message.server
         if server.id not in self.settings: 
-                self.settings[server.id] = {}
+            self.settings[server.id] = {}
         
-        if minkarma<=0 or >50:
+        if minkarma<=0 or minkarma>50:
             await self.bot.say("Too high/low!")
             return
             
@@ -206,7 +206,7 @@ class ReactKarma():
         Disables blacklist if channel(s) left blank"""
         server = ctx.message.server
         if server.id not in self.settings: 
-                self.settings[server.id] = {}
+            self.settings[server.id] = {}
         
         if channel is None:
             self.settings[server.id]["BLACKLIST"] = []
