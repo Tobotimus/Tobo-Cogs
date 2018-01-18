@@ -328,7 +328,7 @@ class ReactKarma():
             if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"]: # Still high enough
                 await self.bot.send_message(discord.Object(id="325869621662056448"), "Embed edit")
                 embed = self._get_embed(message)
-                await self.bot.edit_message(boardmessage, embed=embed)
+                await self.bot.edit_message(boardmessage, message.channel.mention, embed=embed)
                 
             else: # Not high enough, delete
                 await self.bot.send_message(discord.Object(id="325869621662056448"), "Board delete")
@@ -341,7 +341,7 @@ class ReactKarma():
             embed = self._get_embed(message)
 
             channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
-            boardmessage = await self.bot.send_message(channel, embed=embed)
+            boardmessage = await self.bot.send_message(channel, message.channel.mention, embed=embed)
             self.topkarma[message.id]["BOARD"] = boardmessage.id
             
     def _get_embed(self, message: discord.Message):
@@ -354,7 +354,8 @@ class ReactKarma():
             else:
                 embed.add_field(name=Attachment, value=message.attachments[0].url, inline=False)
                 
-        embed.set_footer(icon_url = upvote.url, text="{} | Found in {}".format(message.timestamp, message.channel.mention))
+        embed.set_footer(icon_url = upvote.url, text=" **{}**".format(self.topkarma[message.id]["KARMA"]))
+        embed.timestamp = message.timestamp
         
         return embed
 
