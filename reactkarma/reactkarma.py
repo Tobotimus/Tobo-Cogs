@@ -295,7 +295,7 @@ class ReactKarma():
         self.topkarma = dataIO.load_json(TOPKARMA_PATH) # Why is this stuff reloaded all the time
 
         if message.id not in self.topkarma:
-            self.topkarma[message.id]["KARMA"] = 0            
+            self.topkarma[message.id] = {"KARMA" : 0}
         self.topkarma[message.id]["KARMA"] += amount
         
         if self.topkarma[message.id]["KARMA"] >= self.settings["MINKARMA"] or self.topkarma[message.id]["BOARD"]:
