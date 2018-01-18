@@ -331,7 +331,7 @@ class ReactKarma():
             else: # Not high enough, delete
                 await self.bot.send_message(discord.Object(id="390927071553126402"), "Board delete")
                 self.topkarma[message.id].pop("BOARD", 0)
-                await self.bot.delete_message(message)
+                await self.bot.delete_message(boardmessage)
                 
             
         else:
