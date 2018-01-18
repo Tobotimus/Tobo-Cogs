@@ -346,7 +346,7 @@ class ReactKarma():
             
     def _get_embed(self, message: discord.Message):
         upvote = self._get_emoji(message.server, UPVOTE)
-        embed=discord.Embed(title="{} **{}** | Found in {}".format(upvote, self.topkarma[message.id]["KARMA"], message.channel.mention) , description=message.content)
+        embed=discord.Embed(title="{} **{}** ".format(upvote, self.topkarma[message.id]["KARMA"]) , description=message.content)
         embed.set_author(name=message.author.nick, icon_url=message.author.avatar_url)
         if message.attachments:
             if imghdr.what(message.attachments[0].url) in ['gif','jpeg','png','webp']:
@@ -354,7 +354,7 @@ class ReactKarma():
             else:
                 embed.add_field(name=Attachment, value=message.attachments[0].url, inline=False)
 
-            embed.set_footer(text=message.timestamp)
+            embed.set_footer(text="{} | Found in {}".format(message.timestamp, message.channel.mention)
         
         return embed
 
