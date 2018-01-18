@@ -354,7 +354,7 @@ class ReactKarma():
             else:
                 embed.add_field(name=Attachment, value=message.attachments[0].url, inline=False)
                 
-        embed.set_footer(icon_url = upvote.url, text=" **{}**".format(self.topkarma[message.id]["KARMA"]))
+        embed.set_footer(icon_url = upvote.url, text="{}   |".format(self.topkarma[message.id]["KARMA"]))
         embed.timestamp = message.timestamp
         
         return embed
