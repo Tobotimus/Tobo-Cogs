@@ -191,7 +191,7 @@ class ReactKarma():
         
     @top_karma.command(name="setminimum", pass_context=True)
     @checks.is_owner()
-    async def top_karma_set_minimum(self, ctx, minkarma=3):
+    async def top_karma_set_minimum(self, ctx, minkarma: int=3):
         """Set's the 'top' karma minimum. Default is 3"""
         server = ctx.message.server
         if server.id not in self.settings: 
