@@ -352,11 +352,11 @@ class ReactKarma():
             else:
                 embed.add_field(name=Attachment, value=message.attachments[0].url, inline=False)
         try:
-            ret = emoji.id
+            ret = upvote.id
             isUnicode = False
         except AttributeError:
             # The emoji is unicode
-            ret = emoji
+            ret = upvote
             isUnicode = True
         
         if isUnicode:
