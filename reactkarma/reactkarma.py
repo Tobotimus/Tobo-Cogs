@@ -115,10 +115,12 @@ class ReactKarma():
             msg = "Setting the upvote emoji was cancelled."
         await self.bot.say(msg)
         
-    @commands.command(name="setkarma", pass_context=True, no_pm=True)
+    @commands.command(name="addkarma", pass_context=True, no_pm=True)
     @checks.is_owner()
-    async def set_karma(self, ctx, channel: discord.Channel, messageid, karmaval: int):
-        """Set the karma of a message to passed value"""
+    async def add_karma(self, ctx, channel: discord.Channel, messageid, karmaval: int):
+        """Adjusts karma of a message by the passed value. 
+        
+        Negative to lower karma."""
         message = await self.bot.get_message(channel, messageid)
         await self._add_karma(message.author.id, karmaval, message)
         await self.bot.say("Success")
