@@ -351,8 +351,18 @@ class ReactKarma():
                 embed.set_image(url=message.attachments[0].url)
             else:
                 embed.add_field(name=Attachment, value=message.attachments[0].url, inline=False)
-                
-        embed.set_footer(icon_url = upvote.url, text="{}".format(self.topkarma[message.id]["KARMA"]))
+        try:
+            ret = emoji.id
+            isUnicode = False
+        except AttributeError:
+            # The emoji is unicode
+            ret = emoji
+            isUnicode = True
+        
+        if isUnicode:
+            embed.set_footer(text="{} {}".format(upvote, self.topkarma[message.id]["KARMA"]))
+        else:
+            embed.set_footer(icon_url = upvote.url, text="{}".format(self.topkarma[message.id]["KARMA"]))
         embed.timestamp = message.timestamp
         
         return embed
