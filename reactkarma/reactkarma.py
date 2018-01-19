@@ -19,6 +19,7 @@ DOWNVOTE = "downvote"
 UPVOTE = "upvote"
 KARMACHANNEL = "channel"
 BLACKLIST = "blacklist"
+LOGCHANNEL = "logchannel"
 
 class ReactKarma():
     """Keep track of karma for all users in the bot's scope. 
@@ -171,19 +172,33 @@ class ReactKarma():
             await self.bot.send_cmd_help(ctx)
 
             
-    @top_karma.command(name="setchannel", pass_context=True)
-    async def top_karma_set_channel(self, ctx, channel: discord.Channel=None):
+    @top_karma.command(name="channel", pass_context=True)
+    async def top_karma_channel(self, ctx, channel: discord.Channel=None):
         """Set's a 'top' karma channel. 
         
         Disables karma channel if channel is left blank"""
         server = ctx.message.server
         if server.id not in self.settings: 
-                self.settings[server.id] = {}
+            self.settings[server.id] = {}
                 
         if channel is None:
             self.settings[server.id][KARMACHANNEL] = None
         else:
             self.settings[server.id][KARMACHANNEL] = channel.id
+        
+        dataIO.save_json(SETTINGS_PATH, self.settings)
+        
+        await self.bot.say("Success")
+    
+    @top_karma.command(name="logchannel", pass_context=True)
+    async def top_karma_log_channel(self, ctx, channel: discord.Channel=None):
+        """Set's a 'top' karma global logging channel.
+        
+        Disables logging channel if channel is left blank"""
+        if channel is None:
+            self.settings[LOGCHANNEL] = None
+        else:
+            self.settings[LOGCHANNEL] = channel.id
         
         dataIO.save_json(SETTINGS_PATH, self.settings)
         
@@ -308,10 +323,12 @@ class ReactKarma():
             self.topkarma[message.id] = {"KARMA" : 0}
         self.topkarma[message.id]["KARMA"] += amount
         
-        await self.bot.send_message(discord.Object(id="390927071553126402"), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"])+" for `"+message.content+"`")
+        if LOGCHANNEL in self.settings and self.settings[LOGCHANNEL]:
+            await self.bot.send_message(discord.Object(id=self.settings[LOGCHANNEL]), "Top karma adjusted to "+str(self.topkarma[message.id]["KARMA"])+" for `"+message.content+"`")
         
         if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"] or "BOARD" in self.topkarma[message.id]:
-            await self.bot.send_message(discord.Object(id="390927071553126402"), "Top karma triggered")
+            if LOGCHANNEL in self.settings and self.settings[LOGCHANNEL]:
+                await self.bot.send_message(discord.Object(id=self.settings[LOGCHANNEL]), "Top karma triggered")
             await self._top_karma(message)
         
         dataIO.save_json(TOPKARMA_PATH, self.topkarma)
@@ -319,23 +336,27 @@ class ReactKarma():
     async def _top_karma(self, message: discord.Message):
         server = message.server
         if "BOARD" in self.topkarma[message.id]:  # Already on the board
-            await self.bot.send_message(discord.Object(id="390927071553126402"), "Already on board trigger")
+            if LOGCHANNEL in self.settings and self.settings[LOGCHANNEL]:
+                await self.bot.send_message(discord.Object(id=self.settings[LOGCHANNEL]), "Already on board trigger")
             channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
             boardmessage = await self.bot.get_message(channel, self.topkarma[message.id]["BOARD"])
             
             if self.topkarma[message.id]["KARMA"] >= self.settings[server.id]["MINKARMA"]: # Still high enough
-                await self.bot.send_message(discord.Object(id="390927071553126402"), "Embed edit")
+                if LOGCHANNEL in self.settings and self.settings[LOGCHANNEL]:
+                    await self.bot.send_message(discord.Object(id=self.settings[LOGCHANNEL]), "Embed edit")
                 embed = self._get_embed(message)
                 await self.bot.edit_message(boardmessage, "Found in "+message.channel.mention, embed=embed)
                 
             else: # Not high enough, delete
-                await self.bot.send_message(discord.Object(id="390927071553126402"), "Board delete")
+                if LOGCHANNEL in self.settings and self.settings[LOGCHANNEL]:
+                    await self.bot.send_message(discord.Object(id=self.settings[LOGCHANNEL]), "Board delete")
                 self.topkarma[message.id].pop("BOARD", 0)
                 await self.bot.delete_message(boardmessage)
                 
             
         else:
-            await self.bot.send_message(discord.Object(id="390927071553126402"), "New board post triggered")
+            if LOGCHANNEL in self.settings and self.settings[LOGCHANNEL]:
+                await self.bot.send_message(discord.Object(id=self.settings[LOGCHANNEL]), "New board post triggered")
             embed = self._get_embed(message)
 
             channel = server.get_channel(self.settings[server.id][KARMACHANNEL])
