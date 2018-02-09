@@ -207,7 +207,6 @@ class ReactKarma():
         await self.bot.say("Success")
         
     @top_karma.command(name="setminimum", pass_context=True)
-    @checks.is_owner()
     async def top_karma_set_minimum(self, ctx, minkarma: int=3):
         """Set's the 'top' karma minimum. Default is 3"""
         server = ctx.message.server
@@ -225,7 +224,6 @@ class ReactKarma():
         await self.bot.say("Success")
         
     @top_karma.command(name="blacklist", pass_context=True)
-    @checks.is_owner()
     async def top_karma_blacklist(self, ctx, channel: discord.Channel=None, *morechannels: discord.Channel):
         """Set's the 'top' karma blacklist of channels
         
