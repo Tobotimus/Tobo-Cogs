@@ -39,7 +39,7 @@ class ErrorLogs():
         else:
             await self.bot.say("The operation was cancelled.")
 
-    @commands.command(name="raise", pass_context=True)
+    @commands.command(name="raise", pass_context=True, hidden=True)
     @checks.is_owner()
     async def _raise(self, ctx: commands.Context):
         """Raise an exception. If you want to handle the exception, use 'true'."""
@@ -52,17 +52,21 @@ class ErrorLogs():
             return
         destinations = [c for c in self.bot.get_all_channels() if c.id in self.log_channels]
         destinations += [c for c in self.bot.private_channels if c.id in self.log_channels]
-        error_title = "Exception in command `{}` ¯\_(ツ)_/¯".format(ctx.command.qualified_name)
+        error_title = "Exception in command `{}`".format(ctx.command.qualified_name)
         log = "".join(traceback.format_exception(type(error), error,
                                                     error.__traceback__))
-        channel = ctx.message.channel
+
         embed = discord.Embed(title=error_title, colour=discord.Colour.red(), timestamp=ctx.message.timestamp)
-        embed.add_field(name="Invoker", value="{}\n({})".format(ctx.message.author.mention, str(ctx.message.author)))
+        embed.add_field(name="Invoker", value="{0.mention}\n({0})\nID: {0.id}".format(ctx.message.author))
         embed.add_field(name="Content", value=ctx.message.content)
-        _channel_disp = "Private channel" if channel.is_private else "{}\n({})".format(channel.mention, channel.name)
+        channel = ctx.message.channel
+        if channel.is_private:
+            _channel_disp = "Private channel"
+        else:
+            _channel_disp = "{0.mention}\n({0})\nID: {0.id}".format(channel)
         embed.add_field(name="Channel", value=_channel_disp)
         if not channel.is_private:
-            embed.add_field(name="Server", value=ctx.message.server.name)
+            embed.add_field(name="Server", value="{0.name}\nID: {0.id}".format(ctx.message.server))
         for channel in destinations:
             try:
                 await self.bot.send_message(channel, embed=embed)
