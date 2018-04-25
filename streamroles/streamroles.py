@@ -267,12 +267,12 @@ class StreamRoles:
                 await member.remove_roles(role)
 
     def _get_stream_handle(self, member: discord.Member):
-        game = member.game
-        if game is None or game.type != self.STREAMING:
+        activity = member.activity
+        if activity is None or not isinstance(activity, discord.Streaming):
             return
-        if not game.url.startswith(self.TWITCH_URL):
+        if not activity.url.startswith(self.TWITCH_URL):
             return
-        return game.url.replace(self.TWITCH_URL, "")
+        return activity.url.replace(self.TWITCH_URL, "")
 
     async def get_stream_id(self, stream: str):
         """Get a stream's ID, to be used in API requests."""
@@ -319,7 +319,7 @@ class StreamRoles:
 
     async def _is_allowed(self, member: discord.Member):
         mode = await self.conf.guild(member.guild).mode()
-        listed = await self.conf.member(member).get_attr(mode + "ed")
+        listed = await self.conf.member(member).get_raw(mode + "ed")
         if mode == "blacklist":
             return not listed
         return listed
