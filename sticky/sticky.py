@@ -92,11 +92,11 @@ class Sticky:
         await ctx.send("Done.")
         self.locked_channels.remove(channel)
 
-    async def on_raw_message_delete(self, message_id: int, channel_id: int):
-        """If the stickied message was deleted, unsticky it."""
-        channel = self.bot.get_channel(channel_id)
+    async def on_raw_message_delete(self, payload: discord.raw_models.RawMessageDeleteEvent):
+        """If the stickied message was deleted, re-post it."""
+        channel = self.bot.get_channel(payload.channel_id)
         settings = self.conf.channel(channel)
-        if message_id != await settings.last():
+        if payload.message_id != await settings.last():
             return
         content = await settings.stickied()
         new = await self.send_stickied(channel, content)
