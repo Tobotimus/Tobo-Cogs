@@ -1,4 +1,4 @@
-"""Main module for ErrorLogs cog."""
+"""ErrorLogs, a cog for logging command errors to a discord channel."""
 import traceback
 import discord
 from discord.ext import commands
@@ -117,5 +117,5 @@ def _get_channels_and_settings(ctx: commands.Context, all_dict: dict):
         filter(lambda s: channels[all_settings.index(s)], all_settings))
     channels = list(filter(None, channels))
     if not (channels or any(s.get("enabled") for s in all_settings)):
-        return (None, None)
+        return None, None
     return channels, all_settings
