@@ -1,4 +1,4 @@
-"""Package for general admin plugins for V3."""
+"""Autorole, a cog for automatically applying roles to new users."""
 from redbot.core.bot import Red
 from .autorole import *
 
