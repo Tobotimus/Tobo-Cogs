@@ -1,4 +1,4 @@
-"""Module for Autorole cog."""
+"""Autorole, a cog for automatically applying roles to new users."""
 import discord
 from discord.ext import commands
 from redbot.core import Config, checks
