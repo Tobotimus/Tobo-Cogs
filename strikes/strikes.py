@@ -14,6 +14,7 @@ class Strikes:
     """Strike users to keep track of misbehaviour."""
 
     def __init__(self, bot):
+        self.bot = bot
         self.conf = Config.get_conf(
             self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_member(strikes=[])
@@ -88,6 +89,7 @@ class Strikes:
         """
         try:
             await modlog.create_case(
+                bot=self.bot,
                 guild=member.guild,
                 created_at=timestamp,
                 action_type="strike",
@@ -126,7 +128,10 @@ class Strikes:
             if to_remove is not None:
                 found = True
                 mem_data["strikes"].remove(to_remove)
-                member = MockMember(id=mem_id, guild=ctx.guild)
+                member = ctx.guild.get_member(mem_id)
+                if member is None:
+                    await ctx.send("The user who received that strike has since left the server.")
+                    return
                 await self.conf.member(member).set(mem_data)
                 break
         if found:
