@@ -90,7 +90,7 @@ class WelcomeCount:
 
     @wcount.command(name="toggle", pass_context=True)
     async def wcount_deletemessage(self, ctx: commands.Context):
-        """Enable/disable welcome messages in this channel."""
+        """Enable/disable deleting previous welcome message in this channel."""
         channel: discord.TextChannel = ctx.channel
         settings = self.conf.channel(channel)
         now_deleting: bool = not await settings.delete_message()
