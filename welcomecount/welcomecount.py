@@ -126,6 +126,7 @@ class WelcomeCount:
 
             now_deleting: bool = await channel_settings.delete_message()
             if now_deleting:
+                last_message: int
                 if not new_day:
                     last_message: int = await channel_settings.last_message()
                 try:
