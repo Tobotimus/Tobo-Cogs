@@ -25,7 +25,7 @@ class WelcomeCount:
         self.conf.register_channel(
             enabled=False,
             last_message=None,
-            delete_message=False,
+            delete_last_message=True,
             welcome_msg=_DEFAULT_WELCOME,
         )
         self.conf.register_guild(
@@ -88,15 +88,19 @@ class WelcomeCount:
         await ctx.send("Welcome message set, sending a test message here...")
         await ctx.send(message.format(**params))
 
-    @wcount.command(name="toggle", pass_context=True)
-    async def wcount_deletemessage(self, ctx: commands.Context):
-        """Enable/disable deleting previous welcome message in this channel."""
+    @wcount.command(name="deletelast", pass_context=True)
+    async def wcount_deletelast(self, ctx: commands.Context):
+        """Enable/disable deleting previous welcome message in this channel.
+
+        When enabled, the last message is deleted *only* if it was sent on
+        the same day as the new welcome message.
+        """
         channel: discord.TextChannel = ctx.channel
         settings = self.conf.channel(channel)
-        now_deleting: bool = not await settings.delete_message()
-        await settings.enabled.set(now_deleting)
-        await ctx.send(
-            "Deleting welcome messages are now {0} in this channel.".format("enabled" if now_deleting else "disabled"))
+        now_deleting: bool = not await settings.delete_last_message()
+        await settings.delete_last_message.set(now_deleting)
+        await ctx.send("Deleting welcome messages are now {0} in this channel."
+                       "".format("enabled" if now_deleting else "disabled"))
 
     # Events
 
@@ -124,11 +128,9 @@ class WelcomeCount:
         for channel in welcome_channels:
             channel_settings = self.conf.channel(channel)
 
-            now_deleting: bool = await channel_settings.delete_message()
-            if now_deleting:
-                last_message: int
-                if not new_day:
-                    last_message: int = await channel_settings.last_message()
+            delete_last: bool = await channel_settings.delete_last_message()
+            if delete_last and not new_day:
+                last_message: int = await channel_settings.last_message()
                 try:
                     last_message: discord.Message = await channel.get_message(last_message)
                 except discord.HTTPException:
