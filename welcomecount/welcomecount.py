@@ -43,10 +43,13 @@ class WelcomeCount:
             channel: discord.TextChannel = ctx.channel
             settings = self.conf.channel(channel)
             if await settings.enabled():
-                msg = await settings.welcome_msg()
+                msg: str = await settings.welcome_msg()
+                delete_last: bool = await settings.delete_last_message()
                 await ctx.send(
                     box("Enabled in this channel.\n"
-                        "Welcome message: {0}".format(msg)))
+                        "Deletion of previous welcome message enabled: {0}\n"
+                        "Welcome message: {1}"
+                        "".format(delete_last, msg)))
             else:
                 await ctx.send(box("Disabled in this channel."))
 
