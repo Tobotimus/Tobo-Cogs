@@ -1,4 +1,25 @@
 """Module for a PuG match."""
+
+# Copyright (c) 2017-2018 Tobotimus
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 from typing import Tuple, List
 import discord
 from redbot.core.utils.chat_formatting import box
@@ -9,11 +30,13 @@ __all__ = ["PugMatch"]
 class PugMatch:
     """Class to represent a PuG match."""
 
-    def __init__(self,
-                 bot,
-                 channel: discord.TextChannel,
-                 teams: Tuple[List[discord.Member]],
-                 map_: str):
+    def __init__(
+        self,
+        bot,
+        channel: discord.TextChannel,
+        teams: Tuple[List[discord.Member]],
+        map_: str,
+    ):
         self.bot = bot
         self.channel = channel
         self.teams = teams
@@ -24,8 +47,7 @@ class PugMatch:
 
     async def send_summary(self):
         """Send a summary of this PuG match."""
-        embed = discord.Embed(
-            title="Match Summary", description=self.channel.mention)
+        embed = discord.Embed(title="Match Summary", description=self.channel.mention)
         embed.add_field(name="Map", value=self.map, inline=False)
         embed.add_field(name="Blue Team", value=self._team_str(0))
         embed.add_field(name="Orange Team", value=self._team_str(1))
@@ -34,8 +56,10 @@ class PugMatch:
             if self._scores_settled():
                 score = " - ".join(map(str, self.get_score()))
             else:
-                score = ("Still waiting on a player from each"
-                         " team to enter a matching score.")
+                score = (
+                    "Still waiting on a player from each"
+                    " team to enter a matching score."
+                )
             embed.add_field(name="Score", value=score, inline=False)
         await self.channel.send(embed=embed)
 
@@ -79,25 +103,3 @@ class PugMatch:
     def has_member(self, member: discord.Member):
         """Check if a member is a part of one of this match's teams."""
         return any(member in (p1, p2) for p1, p2 in zip(*self.teams))
-
-
-'''Copyright (c) 2017, 2018 Tobotimus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-'''

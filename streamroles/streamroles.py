@@ -1,13 +1,37 @@
+"""Module for the StreamRoles cog."""
+
+# Copyright (c) 2017-2018 Tobotimus
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import asyncio
 import aiohttp
+import logging
 import discord
 from discord.ext import commands
 
 from redbot.core import Config, checks
 from redbot.core.utils.chat_formatting import box
 
-from .errors import *
-from .log import log
+from .errors import StreamRolesError, StreamNotFound, InvalidToken, APIError
+
+log = logging.getLogger("red.streamroles")
 
 UNIQUE_ID = 0x923476AF
 
@@ -20,11 +44,11 @@ class StreamRoles:
     CHECK_DELAY = 15
 
     def __init__(self):
-        self.conf = Config.get_conf(
-            self, force_registration=True, identifier=UNIQUE_ID)
+        self.conf = Config.get_conf(self, force_registration=True, identifier=UNIQUE_ID)
         self.conf.register_global(twitch_clientid=None)
         self.conf.register_guild(
-            streamer_role=None, game_whitelist=[], mode="blacklist")
+            streamer_role=None, game_whitelist=[], mode="blacklist"
+        )
         self.conf.register_member(blacklisted=False, whitelisted=False)
         self.task = None
 
@@ -41,7 +65,7 @@ class StreamRoles:
         streams = bot.get_cog("Streams")
         if not streams or await self.conf.twitch_clientid():
             return
-        token = await streams.db.tokens.get_attr("TwitchStream")
+        token = await streams.db.tokens.get_raw("TwitchStream", default=None)
         if token:
             await self.conf.twitch_clientid.set(token)
 
@@ -78,10 +102,7 @@ class StreamRoles:
         await ctx.tick()
 
     @whitelist.command(name="remove")
-    async def white_remove(self,
-                           ctx: commands.Context,
-                           *,
-                           user: discord.Member):
+    async def white_remove(self, ctx: commands.Context, *, user: discord.Member):
         """Remove a member from the whitelist."""
         await self.conf.member(user).whitelisted.set(False)
         await ctx.tick()
@@ -110,10 +131,7 @@ class StreamRoles:
         await ctx.tick()
 
     @blacklist.command(name="remove")
-    async def black_remove(self,
-                           ctx: commands.Context,
-                           *,
-                           user: discord.Member):
+    async def black_remove(self, ctx: commands.Context, *, user: discord.Member):
         """Remove a member from the blacklist."""
         await self.conf.member(user).blacklisted.set(False)
         await ctx.tick()
@@ -172,13 +190,15 @@ class StreamRoles:
     @games.command(name="clear")
     async def games_clear(self, ctx: commands.Context):
         """Clear the game whitelist for this server."""
-        await ctx.send("This will clear the game whitelist for this server. "
-                       "Are you sure you want to do this? (Y/N)")
+        await ctx.send(
+            "This will clear the game whitelist for this server. "
+            "Are you sure you want to do this? (Y/N)"
+        )
         try:
             message = await ctx.bot.wait_for(
                 "message",
-                check=
-                lambda m: m.author == ctx.author and m.channel == ctx.channel)
+                check=lambda m: m.author == ctx.author and m.channel == ctx.channel,
+            )
         except asyncio.TimeoutError:
             message = None
         if message is not None and message.content.lower() in ("y", "yes"):
@@ -201,8 +221,10 @@ class StreamRoles:
     async def setrole(self, ctx: commands.Context, *, role: discord.Role):
         """Set the role which is given to streamers."""
         await self.conf.guild(ctx.guild).streamer_role.set(role.id)
-        await ctx.send("Done. Streamers will now be given the {} role when "
-                       "they go live.".format(role.name))
+        await ctx.send(
+            "Done. Streamers will now be given the {} role when "
+            "they go live.".format(role.name)
+        )
 
     @checks.is_owner()
     @streamrole.command(name="clientid")
@@ -257,13 +279,13 @@ class StreamRoles:
                     games = await settings.game_whitelist()
                     if not games or data["game"] in games:
                         if not has_role:
-                            log.debug("Adding streamrole %s to member %s",
-                                      role.id, member.id)
+                            log.debug(
+                                "Adding streamrole %s to member %s", role.id, member.id
+                            )
                             await member.add_roles(role)
                         continue
             if has_role:
-                log.debug("Removing streamrole %s to member %s", role.id,
-                          member.id)
+                log.debug("Removing streamrole %s to member %s", role.id, member.id)
                 await member.remove_roles(role)
 
     def _get_stream_handle(self, member: discord.Member):
@@ -280,7 +302,7 @@ class StreamRoles:
             url = "https://api.twitch.tv/kraken/users?login={}".format(stream)
             headers = await self._get_twitch_headers()
             async with session.get(url, headers=headers) as resp:
-                data = await resp.json(encoding='utf-8')
+                data = await resp.json(encoding="utf-8")
         if resp.status == 200:
             if not data["users"]:
                 raise StreamNotFound(stream)
@@ -299,7 +321,7 @@ class StreamRoles:
             url = "https://api.twitch.tv/kraken/streams/{}".format(stream_id)
             headers = await self._get_twitch_headers()
             async with session.get(url, headers=headers) as resp:
-                data = await resp.json(encoding='utf-8')
+                data = await resp.json(encoding="utf-8")
         if resp.status == 200:
             if not data["stream"]:
                 return
@@ -313,8 +335,8 @@ class StreamRoles:
 
     async def _get_twitch_headers(self):
         return {
-            'Client-ID': await self.conf.twitch_clientid(),
-            'Accept': 'application/vnd.twitchtv.v5+json'
+            "Client-ID": await self.conf.twitch_clientid(),
+            "Accept": "application/vnd.twitchtv.v5+json",
         }
 
     async def _is_allowed(self, member: discord.Member):
@@ -327,25 +349,3 @@ class StreamRoles:
     def __unload(self):
         if self.task is not None:
             self.task.cancel()
-
-
-'''Copyright (c) 2017, 2018 Tobotimus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-'''
