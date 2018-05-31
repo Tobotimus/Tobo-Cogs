@@ -47,6 +47,12 @@ class WelcomeCount:
             self, identifier=UNIQUE_ID, force_registration=True
         )
         self.conf.register_channel(
+            enabled=False,
+            last_message=None,
+            delete_last_message=True,
+            welcome_msg=_DEFAULT_WELCOME,
+        )
+        self.conf.register_channel(
             enabled=False, last_message=None, welcome_msg=_DEFAULT_WELCOME
         )
         self.conf.register_guild(count=0, day=None)
@@ -61,10 +67,13 @@ class WelcomeCount:
             channel: discord.TextChannel = ctx.channel
             settings = self.conf.channel(channel)
             if await settings.enabled():
-                msg = await settings.welcome_msg()
+                msg: str = await settings.welcome_msg()
+                delete_last: bool = await settings.delete_last_message()
                 await ctx.send(
-                    box("Enabled in this channel.\n" "Welcome message: {0}".format(msg))
-                )
+                    box("Enabled in this channel.\n"
+                        "Deletion of previous welcome message enabled: {0}\n"
+                        "Welcome message: {1}"
+                        "".format(delete_last, msg)))
             else:
                 await ctx.send(box("Disabled in this channel."))
 
@@ -108,6 +117,20 @@ class WelcomeCount:
         await ctx.send("Welcome message set, sending a test message here...")
         await ctx.send(message.format(**params))
 
+    @wcount.command(name="deletelast", pass_context=True)
+    async def wcount_deletelast(self, ctx: commands.Context):
+        """Enable/disable deleting previous welcome message in this channel.
+
+        When enabled, the last message is deleted *only* if it was sent on
+        the same day as the new welcome message.
+        """
+        channel: discord.TextChannel = ctx.channel
+        settings = self.conf.channel(channel)
+        now_deleting: bool = not await settings.delete_last_message()
+        await settings.delete_last_message.set(now_deleting)
+        await ctx.send("Deleting welcome messages are now {0} in this channel."
+                       "".format("enabled" if now_deleting else "disabled"))
+
     # Events
 
     async def on_member_join(self, member: discord.Member):
@@ -133,7 +156,9 @@ class WelcomeCount:
 
         for channel in welcome_channels:
             channel_settings = self.conf.channel(channel)
-            if not new_day:
+
+            delete_last: bool = await channel_settings.delete_last_message()
+            if delete_last and not new_day:
                 last_message: int = await channel_settings.last_message()
                 try:
                     last_message: discord.Message = await channel.get_message(
