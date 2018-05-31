@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+yarl = "==0.18.0"
+"discord.py" = {git = "https://github.com/Rapptz/discord.py", editable = true, ref = "rewrite", extras = ["voice"]}
+red-discordbot = {git = "https://github.com/Cog-Creators/Red-DiscordBot", editable = true, ref = "V3/develop", extras = ["voice", "mongo"]}
+"flake8-docstrings" = "*"
+
+[dev-packages]
+black = "*"
+"flake8" = "*"
+"flake8-bugbear" = "*"
+pydocstyle = "*"
+
+[requires]
+python_version = "3.6"
+
+[pipenv]
+allow_prereleases = true
