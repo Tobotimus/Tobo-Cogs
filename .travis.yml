@@ -11,8 +11,8 @@ install:
 - pip install pipenv
 - pipenv install --dev --system
 script:
-  make flake8
-  make stylecheck
+- make flake8
+- make stylecheck
 
 notifications:
   on_success: never
