@@ -70,10 +70,13 @@ class WelcomeCount:
                 msg: str = await settings.welcome_msg()
                 delete_last: bool = await settings.delete_last_message()
                 await ctx.send(
-                    box("Enabled in this channel.\n"
+                    box(
+                        "Enabled in this channel.\n"
                         "Deletion of previous welcome message enabled: {0}\n"
                         "Welcome message: {1}"
-                        "".format(delete_last, msg)))
+                        "".format(delete_last, msg)
+                    )
+                )
             else:
                 await ctx.send(box("Disabled in this channel."))
 
@@ -128,8 +131,10 @@ class WelcomeCount:
         settings = self.conf.channel(channel)
         now_deleting: bool = not await settings.delete_last_message()
         await settings.delete_last_message.set(now_deleting)
-        await ctx.send("Deleting welcome messages are now {0} in this channel."
-                       "".format("enabled" if now_deleting else "disabled"))
+        await ctx.send(
+            "Deleting welcome messages are now {0} in this channel."
+            "".format("enabled" if now_deleting else "disabled")
+        )
 
     # Events
 
