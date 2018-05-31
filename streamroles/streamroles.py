@@ -65,7 +65,7 @@ class StreamRoles:
         streams = bot.get_cog("Streams")
         if not streams or await self.conf.twitch_clientid():
             return
-        token = await streams.db.tokens.get_attr("TwitchStream")
+        token = await streams.db.tokens.get_raw("TwitchStream", default=None)
         if token:
             await self.conf.twitch_clientid.set(token)
 
