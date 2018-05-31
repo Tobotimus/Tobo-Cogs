@@ -1,4 +1,25 @@
-"""Module for WelcomeCount Cog."""
+"""Module for the WelcomeCount Cog."""
+
+# Copyright (c) 2017-2018 Tobotimus
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import datetime
 from typing import List
 
@@ -9,8 +30,9 @@ from redbot.core.utils.chat_formatting import box
 __all__ = ["UNIQUE_ID", "WelcomeCount"]
 
 UNIQUE_ID = 0x6f7951a4
-_DEFAULT_WELCOME = ("Welcome, {mention}, to {server}!\n\n"
-                    "{count} user{plural} joined today!")
+_DEFAULT_WELCOME = (
+    "Welcome, {mention}, to {server}!\n\n" "{count} user{plural} joined today!"
+)
 
 
 class WelcomeCount:
@@ -21,16 +43,13 @@ class WelcomeCount:
     """
 
     def __init__(self):
-        self.conf: Config = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
+        self.conf: Config = Config.get_conf(
+            self, identifier=UNIQUE_ID, force_registration=True
+        )
         self.conf.register_channel(
-            enabled=False,
-            last_message=None,
-            welcome_msg=_DEFAULT_WELCOME,
+            enabled=False, last_message=None, welcome_msg=_DEFAULT_WELCOME
         )
-        self.conf.register_guild(
-            count=0,
-            day=None,
-        )
+        self.conf.register_guild(count=0, day=None)
 
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
@@ -44,8 +63,8 @@ class WelcomeCount:
             if await settings.enabled():
                 msg = await settings.welcome_msg()
                 await ctx.send(
-                    box("Enabled in this channel.\n"
-                        "Welcome message: {0}".format(msg)))
+                    box("Enabled in this channel.\n" "Welcome message: {0}".format(msg))
+                )
             else:
                 await ctx.send(box("Disabled in this channel."))
 
@@ -56,8 +75,10 @@ class WelcomeCount:
         settings = self.conf.channel(channel)
         now_enabled: bool = not await settings.enabled()
         await settings.enabled.set(now_enabled)
-        await ctx.send("Welcome messages are now {0} in this channel."
-                       "".format("enabled" if now_enabled else "disabled"))
+        await ctx.send(
+            "Welcome messages are now {0} in this channel."
+            "".format("enabled" if now_enabled else "disabled")
+        )
 
     @wcount.command(name="message", pass_context=True, no_pm=True)
     async def wcount_message(self, ctx: commands.Context, *, message: str):
@@ -82,7 +103,7 @@ class WelcomeCount:
             "username": member.display_name,
             "server": ctx.guild.name,
             "count": count,
-            "plural": "" if count == 1 else "s"
+            "plural": "" if count == 1 else "s",
         }
         await ctx.send("Welcome message set, sending a test message here...")
         await ctx.send(message.format(**params))
@@ -115,7 +136,9 @@ class WelcomeCount:
             if not new_day:
                 last_message: int = await channel_settings.last_message()
                 try:
-                    last_message: discord.Message = await channel.get_message(last_message)
+                    last_message: discord.Message = await channel.get_message(
+                        last_message
+                    )
                 except discord.HTTPException:
                     # Perhaps the message was deleted
                     pass
@@ -127,30 +150,8 @@ class WelcomeCount:
                 "username": member.display_name,
                 "server": guild.name,
                 "count": count,
-                "plural": "" if count == 1 else "s"
+                "plural": "" if count == 1 else "s",
             }
             welcome: str = await channel_settings.welcome_msg()
             msg: discord.Message = await channel.send(welcome.format(**params))
             await channel_settings.last_message.set(msg.id)
-
-
-'''Copyright (c) 2017, 2018 Tobotimus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-'''

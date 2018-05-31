@@ -1,4 +1,25 @@
 """Module for PugVoice cog."""
+
+# Copyright (c) 2017-2018 Tobotimus
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import re
 import discord
 from r6pugs import Pug, PugMatch
@@ -53,7 +74,7 @@ class PugVoice:
         Creates the voice channels for the PUG under its channel category.
         """
         category = pug.category
-        pug_n = re.findall(r'\d+', category.name)
+        pug_n = re.findall(r"\d+", category.name)
         if not pug_n:
             return
         pug_n = int(pug_n.pop())
@@ -70,39 +91,37 @@ class PugVoice:
         if mod_role is not None:
             def_overwrite[mod_role] = discord.PermissionOverwrite(
                 connect=True,
-                manage_channels=True
-                if mod_role.permissions.manage_channels else None)
+                manage_channels=True if mod_role.permissions.manage_channels else None,
+            )
         if admin_role is not None:
             def_overwrite[admin_role] = discord.PermissionOverwrite(
-                manage_channels=True)
+                manage_channels=True
+            )
 
-        allow_starter = {
-            pug.owner: discord.PermissionOverwrite(connect=True)
-        }
+        allow_starter = {pug.owner: discord.PermissionOverwrite(connect=True)}
         allow_starter.update(def_overwrite)
         lobby = await guild.create_voice_channel(
             _LOBBY_NAME,
             category=category,
             overwrites=allow_starter,
-            reason="Lobby for PUG")
+            reason="Lobby for PUG",
+        )
 
         blue = await guild.create_voice_channel(
             _BLUE,
             category=category,
             overwrites=def_overwrite,
-            reason="Team channel for PUG")
+            reason="Team channel for PUG",
+        )
 
         orange = await guild.create_voice_channel(
             _ORANGE,
             category=category,
             overwrites=def_overwrite,
-            reason="Team channel for PUG")
+            reason="Team channel for PUG",
+        )
 
-        self.channels[pug] = {
-            "lobby": lobby,
-            "blue": blue,
-            "orange": orange
-        }
+        self.channels[pug] = {"lobby": lobby, "blue": blue, "orange": orange}
 
     @pug_has_voice_channels
     async def on_pug_end(self, pug: Pug):
@@ -134,7 +153,7 @@ class PugVoice:
         await orange.set_permissions(member, overwrite=None)
 
     @match_has_voice_channels
-    async def on_pug_match_start(self, match: PugMatch, pug: Pug=None):
+    async def on_pug_match_start(self, match: PugMatch, pug: Pug = None):
         """Event for a PUG match starting.
 
         Players will be given permissions to connect to and speak in their
@@ -152,7 +171,7 @@ class PugVoice:
                     pass
 
     @match_has_voice_channels
-    async def on_pug_match_end(self, match: PugMatch, pug: Pug=None):
+    async def on_pug_match_end(self, match: PugMatch, pug: Pug = None):
         """Event for a PUG match ending.
 
         Players are moved back to the PUG lobby, and their permissions for
@@ -168,25 +187,3 @@ class PugVoice:
                     await player.move_to(lobby)
                 except discord.Forbidden:
                     pass
-
-
-'''Copyright (c) 2017, 2018 Tobotimus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-'''

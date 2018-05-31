@@ -1,4 +1,25 @@
 """Module for R6Pugs cog."""
+
+# Copyright (c) 2017-2018 Tobotimus
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import pkgutil
 import discord
 from discord.ext import commands
@@ -11,8 +32,12 @@ from .errors import Forbidden, ExtensionNotFound
 from . import extensions
 
 __all__ = [
-    "UNIQUE_ID", "pug_starter_or_permissions", "R6Pugs", "load_extensions",
-    "unload_extensions", "get_spec"
+    "UNIQUE_ID",
+    "pug_starter_or_permissions",
+    "R6Pugs",
+    "load_extensions",
+    "unload_extensions",
+    "get_spec",
 ]
 
 UNIQUE_ID = 0x315e5521
@@ -41,8 +66,7 @@ class R6Pugs:
 
     def __init__(self, bot):
         self.pugs = []
-        self.conf = Config.get_conf(
-            self, identifier=UNIQUE_ID, force_registration=True)
+        self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_global(loaded_extensions=[])
         self.bot = bot
         bot.loop.create_task(load_extensions(bot, self.conf))
@@ -68,9 +92,9 @@ class R6Pugs:
 
     @pug.command(name="stop")
     @pug_starter_or_permissions(manage_messages=True)
-    async def _pug_stop(self,
-                        ctx: commands.Context,
-                        channel: discord.TextChannel=None):
+    async def _pug_stop(
+        self, ctx: commands.Context, channel: discord.TextChannel = None
+    ):
         """Stop an ongoing PUG.
 
         If no channel is specified, it will try to end the PUG in this channel.
@@ -79,17 +103,18 @@ class R6Pugs:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send(
-                "There is no PUG running in {0.mention}.".format(channel))
+            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         pug.end()
 
     @pug.command(name="kick")
     @checks.mod_or_permissions(kick_members=True)
-    async def _pug_kick(self,
-                        ctx: commands.Context,
-                        member: discord.Member,
-                        channel: discord.TextChannel=None):
+    async def _pug_kick(
+        self,
+        ctx: commands.Context,
+        member: discord.Member,
+        channel: discord.TextChannel = None,
+    ):
         """Kick a member from an ongoing PUG.
 
         If no channel is specified, it will try to use the PUG in this channel.
@@ -98,20 +123,21 @@ class R6Pugs:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send(
-                "There is no PUG running in {0.mention}.".format(channel))
+            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         success = pug.remove_member(member)
         if success is not False:
-            await ctx.send("*{0.display_name}* has been kicked from the PUG"
-                           " in {1.mention}.".format(member, channel))
+            await ctx.send(
+                "*{0.display_name}* has been kicked from the PUG"
+                " in {1.mention}.".format(member, channel)
+            )
             return
         await ctx.send("*{0.display_name}* is not in that PUG.")
 
     @pug.command(name="join")
-    async def _pug_join(self,
-                        ctx: commands.Context,
-                        channel: discord.TextChannel=None):
+    async def _pug_join(
+        self, ctx: commands.Context, channel: discord.TextChannel = None
+    ):
         """Join a PUG.
 
         If no channel is specified, it tries to join the PUG in the current
@@ -121,8 +147,7 @@ class R6Pugs:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send(
-                "There is no PUG running in {0.mention}.".format(channel))
+            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         try:
             success = pug.add_member(ctx.author)
@@ -135,9 +160,9 @@ class R6Pugs:
             await ctx.send("Done.")
 
     @pug.command(name="leave")
-    async def _pug_leave(self,
-                         ctx: commands.Context,
-                         channel: discord.TextChannel=None):
+    async def _pug_leave(
+        self, ctx: commands.Context, channel: discord.TextChannel = None
+    ):
         """Leave a PUG.
 
         If no channel is specified, it tries to leave the PUG in the current
@@ -147,8 +172,7 @@ class R6Pugs:
             channel = ctx.channel
         pug = self.get_pug(channel)
         if pug is None:
-            await ctx.send(
-                "There is no PUG running in {0.mention}.".format(channel))
+            await ctx.send("There is no PUG running in {0.mention}.".format(channel))
             return
         success = pug.remove_member(ctx.author)
         if success is False:
@@ -157,10 +181,9 @@ class R6Pugs:
         await ctx.send("Done.")
 
     @pug.command(name="submit")
-    async def _pug_submit(self,
-                          ctx: commands.Context,
-                          your_score: int,
-                          their_score: int):
+    async def _pug_submit(
+        self, ctx: commands.Context, your_score: int, their_score: int
+    ):
         """Submit scores for a PUG match."""
         pug = self.get_pug(ctx.channel)
         if pug is None:
@@ -202,7 +225,8 @@ class R6Pugs:
                 LOG.exception("Package loading failed", exc_info=err)
                 await ctx.send(
                     "Failed to load extension. Check your console or"
-                    " logs for details.")
+                    " logs for details."
+                )
             else:
                 loaded = await self.conf.loaded_extensions()
                 if extension not in loaded:
@@ -243,12 +267,12 @@ class R6Pugs:
         if names or loaded:
             if loaded:
                 await ctx.send(
-                    box("Loaded extensions:\n{}"
-                        "".format(", ".join(loaded))))
+                    box("Loaded extensions:\n{}" "".format(", ".join(loaded)))
+                )
             if names:
                 await ctx.send(
-                    box("Available extensions:\n{}"
-                        "".format(", ".join(names))))
+                    box("Available extensions:\n{}" "".format(", ".join(names)))
+                )
         else:
             await ctx.send("There are no extensions available.")
 
@@ -267,8 +291,7 @@ class R6Pugs:
             return next((p for p in self.pugs if p.channel == channel), None)
         if isinstance(channel, discord.CategoryChannel):
             return next((p for p in self.pugs if p.category == channel), None)
-        raise TypeError("Can only get PUG by its text channel or its"
-                        " category.")
+        raise TypeError("Can only get PUG by its text channel or its" " category.")
 
     async def create_temp_category(self, guild: discord.Guild):
         """Create a temporary channel category to run a PUG.
@@ -293,9 +316,11 @@ class R6Pugs:
                 break
         chan_name = "pug-{}".format(idx)
         category = await guild.create_category(
-            cat_name, reason="Temporary PUG category")
+            cat_name, reason="Temporary PUG category"
+        )
         channel = await guild.create_text_channel(
-            chan_name, category=category, reason="Temporary PUG channel")
+            chan_name, category=category, reason="Temporary PUG channel"
+        )
         return (category, channel)
 
     async def delete_temp_category(self, category: discord.CategoryChannel):
@@ -325,9 +350,11 @@ class R6Pugs:
         LOG.debug("PUG started; #%s in %s", channel, channel.guild)
         if pug not in self.pugs:
             self.pugs.append(pug)
-        await channel.send("A PUG has been started here by {0.mention},"
-                           "type `!pug join` in this channel to join it."
-                           "".format(pug.owner))
+        await channel.send(
+            "A PUG has been started here by {0.mention},"
+            "type `!pug join` in this channel to join it."
+            "".format(pug.owner)
+        )
         await pug.run_initial_setup()
 
     async def on_pug_end(self, pug: Pug):
@@ -342,11 +369,13 @@ class R6Pugs:
         if pug.settings["temp_channels"]:
             msg += (
                 "\nSince this channel was a temporary channel created"
-                " specifically for this PUG, it will be deleted in 5 minutes.")
+                " specifically for this PUG, it will be deleted in 5 minutes."
+            )
             coro = self.delete_temp_category(pug.category)
             LOG.debug("Scheduling deletion of category %s", pug.category)
-            pug.bot.loop.call_later(_DELETE_CHANNEL_AFTER,
-                                    pug.bot.loop.create_task, coro)
+            pug.bot.loop.call_later(
+                _DELETE_CHANNEL_AFTER, pug.bot.loop.create_task, coro
+            )
         await channel.send(msg)
 
     async def on_pug_member_join(self, member: discord.Member, pug: Pug):
@@ -355,16 +384,21 @@ class R6Pugs:
         msg = ""
         if n_members < 10:
 
-            msg = ("{0.mention} has joined the Pug, {1} more player{2}"
-                   " needed to start the match!"
-                   "".format(member, 10 - n_members, "s are"
-                             if n_members != 9 else " is"))
+            msg = (
+                "{0.mention} has joined the Pug, {1} more player{2}"
+                " needed to start the match!"
+                "".format(member, 10 - n_members, "s are" if n_members != 9 else " is")
+            )
         elif n_members == 10:
-            msg = ("{0.mention} is the 10th player in the Pug, a match"
-                   " will start now!".format(member))
+            msg = (
+                "{0.mention} is the 10th player in the Pug, a match"
+                " will start now!".format(member)
+            )
         else:
-            msg = ("{0.mention} has joined the Pug and is at position"
-                   " {1} in the queue.".format(member, n_members - 10))
+            msg = (
+                "{0.mention} has joined the Pug and is at position"
+                " {1} in the queue.".format(member, n_members - 10)
+            )
         await pug.channel.send(msg)
 
     async def on_pug_member_remove(self, member: discord.Member, pug: Pug):
@@ -372,10 +406,11 @@ class R6Pugs:
         n_members = len(pug.queue)
         msg = ""
         if n_members < 10:
-            msg = ("{0.mention} has left the Pug, {1} more player{2}"
-                   " now needed to start the match."
-                   "".format(member, 10 - n_members, "s are"
-                             if n_members != 9 else " is"))
+            msg = (
+                "{0.mention} has left the Pug, {1} more player{2}"
+                " now needed to start the match."
+                "".format(member, 10 - n_members, "s are" if n_members != 9 else " is")
+            )
         else:
             msg = "{0.mention} has left the Pug.".format(member)
         await pug.channel.send(msg)
@@ -396,7 +431,8 @@ class R6Pugs:
                 plural = " is" if needed == 1 else "s are"
                 await pug.channel.send(
                     "{} more player{} needed to start the match!"
-                    "".format(needed, plural))
+                    "".format(needed, plural)
+                )
                 return
         await pug.run_match()
 
@@ -416,8 +452,8 @@ class R6Pugs:
         pug = self.get_pug(channel)
         if len(pug.queue) >= 10:
             await channel.send(
-                "There will now be a 1 minute break before the next match"
-                " starts.")
+                "There will now be a 1 minute break before the next match" " starts."
+            )
 
             def _allow_match(pug: Pug):
                 pug.match_running = False
@@ -430,7 +466,8 @@ class R6Pugs:
         if pug.settings["losers_leave"] and match.final_score is not None:
             await channel.send(
                 "Losers are being removed from the PUG, they may use"
-                " `!pug join` to rejoin the queue.")
+                " `!pug join` to rejoin the queue."
+            )
             for player in losing_team:
                 pug.remove_member(player)
 
@@ -440,8 +477,7 @@ class R6Pugs:
         If the guild channel is a PUG channel or category, it  will end the
         PUG running there.
         """
-        if not isinstance(channel,
-                          (discord.TextChannel, discord.CategoryChannel)):
+        if not isinstance(channel, (discord.TextChannel, discord.CategoryChannel)):
             return
         pug = self.get_pug(channel)
         if pug is not None and pug in self.pugs:
@@ -485,25 +521,3 @@ def get_spec(extension: str):
     else:
         raise ExtensionNotFound(extension)
     return spec
-
-
-'''Copyright (c) 2017, 2018 Tobotimus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-'''

@@ -1,4 +1,25 @@
 """Module for PugNotifications cog."""
+
+# Copyright (c) 2017-2018 Tobotimus
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import re
 from datetime import datetime, timedelta
 import discord
@@ -15,7 +36,7 @@ class BadTimeExpr(Exception):
     pass
 
 
-_UNIT_TABLE = {'s': 1, 'm': 60, 'h': 60 * 60}
+_UNIT_TABLE = {"s": 1, "m": 60, "h": 60 * 60}
 
 
 # _parse_time and _timespec_sec functions are taken from
@@ -23,9 +44,9 @@ _UNIT_TABLE = {'s': 1, 'm': 60, 'h': 60 * 60}
 #  https://github.com/calebj/calebj-cogs
 def _parse_time(time: str):
     if any(u in time for u in _UNIT_TABLE):
-        delim = '([0-9.]*[{}])'.format(''.join(_UNIT_TABLE))
+        delim = "([0-9.]*[{}])".format("".join(_UNIT_TABLE))
         time = re.split(delim, time)
-        time = sum([_timespec_sec(t) for t in time if t != ''])
+        time = sum([_timespec_sec(t) for t in time if t != ""])
     elif not time.isdigit():
         raise BadTimeExpr("invalid expression '%s'" % time)
     return int(time)
@@ -43,10 +64,8 @@ class PugNotifications:
     """Stay notified about PUGs."""
 
     def __init__(self):
-        self.conf = Config.get_conf(
-            self, identifier=UNIQUE_ID, force_registration=True)
-        self.conf.register_guild(
-            role=None, mention_cooldown=1800, last_mention=None)
+        self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
+        self.conf.register_guild(role=None, mention_cooldown=1800, last_mention=None)
         self.conf.register_member(online_sub=False)
 
     @commands.group()
@@ -96,7 +115,8 @@ class PugNotifications:
         except BadTimeExpr:
             await ctx.send(
                 "Invalid time specification. Must be any combination"
-                " of numbers with the units s, m, h.")
+                " of numbers with the units s, m, h."
+            )
             return
         if duration > 24 * 60 * 60:
             await ctx.send("Duration must not exceed 24 hours.")
@@ -131,8 +151,7 @@ class PugNotifications:
     async def _set_role(self, ctx: commands.Context, *, role: discord.Role):
         """Set the PUG role for this server."""
         if not role.mentionable:
-            await role.edit(
-                mentionable=True, reason="Making PUG role mentionable")
+            await role.edit(mentionable=True, reason="Making PUG role mentionable")
             return
         settings = self.conf.guild(ctx.guild)
         await settings.role.set(role.id)
@@ -146,7 +165,8 @@ class PugNotifications:
         except BadTimeExpr:
             await ctx.send(
                 "Invalid time specification. Must be any combination"
-                " of numbers with the units s, m, h.")
+                " of numbers with the units s, m, h."
+            )
             return
         await self.conf.guild(ctx.guild).mention_cooldown.set(duration)
         await ctx.send("Done.")
@@ -183,11 +203,11 @@ class PugNotifications:
                 member = guild.get_member(int(member_id))
                 if member is not None and _is_online(member):
                     await member.add_roles(role)
-                    loop.call_later(later, loop.create_task,
-                                    member.remove_roles(role))
+                    loop.call_later(later, loop.create_task, member.remove_roles(role))
                     later += 2
         await pug.channel.send(
-            "Paging {0.mention} - a PUG has started here!".format(role))
+            "Paging {0.mention} - a PUG has started here!".format(role)
+        )
 
     async def get_role(self, guild: discord.Guild):
         """Get the role for PUG notifications in a guild."""
@@ -200,25 +220,3 @@ class PugNotifications:
 def _is_online(member: discord.Member):
     statuses = (discord.Status.online, discord.Status.idle)
     return member.status in statuses
-
-
-'''Copyright (c) 2017, 2018 Tobotimus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-'''
