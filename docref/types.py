@@ -140,8 +140,7 @@ class NodeRef:
     """
 
     REF_PATTERN = re.compile(
-        r"(?P<dir1>:[a-z\-]+:)?(?P<dir2>[a-z\-]+:)?"
-        r"(?P<backtick>`?)(?P<refname>.*)(?P=backtick)$"
+        r"(?P<dir1>:[a-z\-]+:)?(?P<dir2>[a-z\-]+:)?`?(?P<refname>.*)`?$"
     )
     STD_ROLES = ("doc", "label", "term", "cmdoption", "envvar", "opcode", "token")
 
@@ -153,6 +152,8 @@ class NodeRef:
     @classmethod
     async def convert(cls, ctx: commands.Context, argument: str) -> "NodeRef":
         """Convert from a string argument to a NodeRef."""
+        argument = argument.strip("`")
+
         match = cls.REF_PATTERN.match(argument)
         # make sure the refname exists
         refname = match["refname"]
