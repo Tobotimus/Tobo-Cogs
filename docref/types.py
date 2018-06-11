@@ -140,8 +140,7 @@ class NodeRef:
     """
 
     REF_PATTERN = re.compile(
-        r"(?P<dir1>:[a-z\-]+:)?(?P<dir2>[a-z\-]+:)?"
-        r"`?(?P<refname>.*)`?$"
+        r"(?P<dir1>:[a-z\-]+:)?(?P<dir2>[a-z\-]+:)?`?(?P<refname>.*)`?$"
     )
     STD_ROLES = ("doc", "label", "term", "cmdoption", "envvar", "opcode", "token")
 
