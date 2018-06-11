@@ -3,7 +3,13 @@
 ignore =
     E203, E266, E501, E731
     W503
-    D107, D202, D203, D212, D213, D103, D402, D401, D413
+    D107, D202, D203, D212, D213, D103, D301, D402, D401, D413
+exclude =
+    .git
+    .venv
+    .pytest_cache
+    __pycache__
+    tests
 max-line-length = 80
 max-complexity = 18
 select = B,C,D,E,F,W,T4,B9

@@ -1,5 +1,5 @@
 flake8:
-	flake8 `git ls-files "*.py"`
+	flake8
 reformat:
 	black `git ls-files "*.py"`
 stylecheck:

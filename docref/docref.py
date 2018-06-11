@@ -233,7 +233,6 @@ class DocRef:
 
         description = "\n".join(lines)
 
-        embed_list: List[discord.Embed] = []
         for page in chatutils.pagify(description, page_length=2048):
             await ctx.send(embed=discord.Embed(description=page))
 
