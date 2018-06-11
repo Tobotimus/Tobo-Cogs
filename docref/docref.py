@@ -105,14 +105,12 @@ class DocRef:
             if not matches:
                 continue
 
-            if exact_matches and not exact:
-                # we've already found closer matches than these, discard
-                continue
-
             if exact:
                 assert matches  # just double check our subroutine didn't do a poopoo
-                del partial_matches
                 exact_matches[reftype] = matches
+            elif exact_matches:
+                # we've already found closer matches than these, discard
+                continue
             else:
                 partial_matches[reftype] = matches
 
