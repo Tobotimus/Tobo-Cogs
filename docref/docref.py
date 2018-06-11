@@ -237,6 +237,26 @@ class DocRef:
         for page in chatutils.pagify(description, page_length=2048):
             await ctx.send(embed=discord.Embed(description=page))
 
+    @commands.command()
+    @checks.is_owner()
+    async def forceupdate(self, ctx: commands.Context, site: str):
+        """Force a documentation webpage to be updated.
+
+        Updates are checked for every time you use `[p]docref`. However,
+        the inventory cache isn't actually update unless we have an old
+        version number.
+
+        This command will force the site to be updated irrespective of the
+        version number.
+        """
+        url: str = await self.get_url(site)
+        if url is None:
+            await ctx.send(f'Couldn\'t find the site name "{site}".')
+            return
+        async with ctx.typing():
+            await self.update_inv(url, force=True)
+        await ctx.tick()
+
     def get_matches(
         self, refname: str, ref_dict: RefDict
     ) -> Tuple[List[RefSpec], bool]:
@@ -315,18 +335,6 @@ class DocRef:
             if url is not None:
                 return url
         return await self.conf.sites.get_raw(sitename, default=None)
-
-    @commands.command()
-    @checks.is_owner()
-    async def forceupdate(self, ctx: commands.Context, site: str):
-        """Force a cached inventory to be updated."""
-        url: str = await self.get_url(site)
-        if url is None:
-            await ctx.send(f'Couldn\'t find the site name "{site}".')
-            return
-        async with ctx.typing():
-            await self.update_inv(url, force=True)
-        await ctx.tick()
 
     async def update_inv(self, url: str, *, force: bool = False) -> InvData:
         """Update a locally cached inventory.
