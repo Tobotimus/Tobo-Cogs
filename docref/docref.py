@@ -173,9 +173,9 @@ class DocRef:
             await ctx.send(f'Unknown scope "{scope}".')
             return
 
+        await ctx.trigger_typing()
         try:
-            async with ctx.typing():
-                await self.update_inv(url)
+            await self.update_inv(url)
         except NotFound:
             await ctx.send("Couldn't find an inventory from that URL.")
             return
@@ -253,8 +253,8 @@ class DocRef:
         if url is None:
             await ctx.send(f'Couldn\'t find the site name "{site}".')
             return
-        async with ctx.typing():
-            await self.update_inv(url, force=True)
+        await ctx.trigger_typing()
+        await self.update_inv(url, force=True)
         await ctx.tick()
 
     def get_matches(
