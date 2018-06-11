@@ -37,7 +37,7 @@ UNIQUE_ID = 0x178AC710
 class DocRef:
     """Search for references on documentation webpages.
 
-    I need to be able to embed links when for this cog to be useful!
+    I need to be able to embed links for this cog to be useful!
     """
 
     def __init__(self):
