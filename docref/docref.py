@@ -338,7 +338,9 @@ class DocRef:
                 return url
         return await self.conf.sites.get_raw(sitename, default=None)
 
-    async def remove_site(self, sitename: str, guild: Optional[discord.Guild], is_owner: bool) -> None:
+    async def remove_site(
+        self, sitename: str, guild: Optional[discord.Guild], is_owner: bool
+    ) -> None:
         """Remove a site from the given scope.
 
         Only removes one site at a time. If there is a site with the same name
