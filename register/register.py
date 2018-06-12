@@ -25,7 +25,10 @@ from redbot.core import commands
 
 
 class SelfRole(commands.Converter):
+    """Same converter as the one used in Admin, except it grabs the cog differently."""
+
     async def convert(self, ctx: commands.Context, arg: str) -> discord.Role:
+        """Convert an arg to a SelfRole."""
         admin = ctx.bot.get_cog("Admin")
         if admin is None:
             raise commands.BadArgument("Admin is not loaded.")
