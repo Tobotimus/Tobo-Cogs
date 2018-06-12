@@ -29,6 +29,7 @@ from .errors import (
     NotFound,
     NoMoreRefs,
     InternalError,
+    Forbidden,
 )
 
 UNIQUE_ID = 0x178AC710
@@ -78,7 +79,7 @@ class DocRef:
         url: str
         inv_data: InvData
         try:
-            url, inv_data = await self.get_inv_data(sitename)
+            url, inv_data = await self.get_inv_data(sitename, ctx.guild)
         except InvNotAvailable:
             await ctx.send(f'Couldn\'t find the site name "{sitename}".')
             return
@@ -137,25 +138,32 @@ class DocRef:
 
     @commands.command()
     @checks.admin_or_permissions(administrator=True)
-    async def addsite(
-        self, ctx: commands.Context, sitename: str, url: str, scope: str = "global"
-    ):
+    async def addsite(self, ctx: commands.Context, sitename: str, url: str, scope=None):
         """Add a new documentation site.
 
         `<url>` must be resolved to an actual docs webpage, and not a redirect
         URL. For example, `https://docs.python.org` is invalid, however the
         URL it redirects to, `https://docs.python.org/3/`, is valid.
 
-        `<scope>` specifies where this site can be accessed from. Defaults to
-        `global`, however you can instead specify `server`.
+        `<scope>` is an owner-only argument and specifies where this site can
+        be accessed from. Defaults to `server` for everyone except the bot
+        owner, whose scope defaults to `global`.
         """
-
         if not url.startswith("https://"):
             await ctx.send("Must be an HTTPS URL.")
             return
-
         if not url.endswith("/"):
             url += "/"
+
+        is_owner = await ctx.bot.is_owner(ctx.author)
+        if scope is not None and not is_owner:
+            await ctx.send("Only bot owners can specify the scope.")
+            return
+        elif scope is None:
+            if is_owner:
+                scope = "global"
+            else:
+                scope = "guild"
 
         scope = scope.lower()
         if scope in ("server", "guild"):
@@ -163,17 +171,15 @@ class DocRef:
                 await ctx.send(f"Can't add to {scope} scope from DM.")
                 return
             conf_group = self.conf.guild(ctx.guild).sites
-
         elif scope == "global":
             conf_group = self.conf.sites
-
         else:
             await ctx.send(f'Unknown scope "{scope}".')
             return
 
-        await ctx.trigger_typing()
         try:
-            await self.update_inv(url)
+            async with ctx.typing():
+                await self.update_inv(url)
         except NotFound:
             await ctx.send("Couldn't find an inventory from that URL.")
             return
@@ -199,26 +205,25 @@ class DocRef:
 
         This command will remove just one site, and if there are multiple
         sites with the same name, it will remove the most local one.
-        """
-        try:
-            conf_value = self.conf.sites.get_attr(sitename)
-        except AttributeError:
-            try:
-                conf_value = self.conf.guild(ctx.guild).sites.get_attr(sitename)
-            except AttributeError:
-                await ctx.send(f'Couldn\'t find the site name "{sitename}".')
-                return
 
-        await conf_value.clear()
-        url = await conf_value()
-        await self._decref(url)
-        await ctx.send(f'The site "{sitename}" has been successfully removed.')
+        Only bot owners can delete global sites.
+        """
+        is_owner = await ctx.bot.is_owner(ctx.author)
+        try:
+            await self.remove_site(sitename, ctx.guild, is_owner)
+        except InvNotAvailable:
+            await ctx.send(f"Couldn't find a site by the name `{sitename}`.")
+        except Forbidden as exc:
+            await ctx.send(exc.args[0])
+        else:
+            await ctx.tick()
 
     @commands.command()
     async def docsites(self, ctx: commands.Context):
         """List all installed and available documentation websites."""
         sites = await self.conf.sites()
-        sites.update(await self.conf.guild(ctx.guild).sites())
+        if ctx.guild is not None:
+            sites.update(await self.conf.guild(ctx.guild).sites())
 
         lines: List[str] = []
         for name, url in sites.items():
@@ -236,7 +241,7 @@ class DocRef:
 
     @commands.command()
     @checks.is_owner()
-    async def forceupdate(self, ctx: commands.Context, site: str):
+    async def forceupdate(self, ctx: commands.Context, sitename: str):
         """Force a documentation webpage to be updated.
 
         Updates are checked for every time you use `[p]docref`. However,
@@ -246,12 +251,12 @@ class DocRef:
         This command will force the site to be updated irrespective of the
         version number.
         """
-        url: str = await self.get_url(site)
+        url: str = await self.get_url(sitename)
         if url is None:
-            await ctx.send(f'Couldn\'t find the site name "{site}".')
+            await ctx.send(f'Couldn\'t find the site name "{sitename}".')
             return
-        await ctx.trigger_typing()
-        await self.update_inv(url, force=True)
+        async with ctx.typing():
+            await self.update_inv(url, force=True)
         await ctx.tick()
 
     def get_matches(
@@ -332,6 +337,51 @@ class DocRef:
             if url is not None:
                 return url
         return await self.conf.sites.get_raw(sitename, default=None)
+
+    async def remove_site(
+        self, sitename: str, guild: Optional[discord.Guild], is_owner: bool
+    ) -> None:
+        """Remove a site from the given scope.
+
+        Only removes one site at a time. If there is a site with the same name
+        in both the guild and global scope, only the guild one will be
+        removed.
+
+        Arguments
+        ---------
+        sitename
+            The user-defined site name.
+        guild
+            The guild from who's data is being mutated.
+        is_owner
+            Whether or not the user doing the action is the bot owner.
+
+        Raises
+        ------
+        InvNotAvailable
+            If no site with that name is available in the given scope.
+        Forbidden
+            If the user does not have the right privelages to remove the site.
+
+        """
+        url = await self.get_url(sitename, guild)
+        if url is None:
+            raise InvNotAvailable()
+
+        if guild is not None:
+            sites = await self.conf.guild(guild).sites()
+            if sitename in sites:
+                del sites[sitename]
+                await self.conf.guild(guild).sites.set(sites)
+                await self._decref(url)
+                return
+
+        if not is_owner:
+            raise Forbidden("Only bot owners can delete global sites.")
+
+        async with self.conf.sites() as sites:
+            del sites[sitename]
+        await self._decref(url)
 
     async def update_inv(self, url: str, *, force: bool = False) -> InvData:
         """Update a locally cached inventory.
@@ -640,7 +690,7 @@ class DocRef:
 
         return _filter
 
-    async def _decref(self, url: str):
+    async def _decref(self, url: str) -> None:
         metadata = await self.get_inv_metadata(url)
         try:
             metadata.dec_refcount()
@@ -649,13 +699,14 @@ class DocRef:
         else:
             await self.set_inv_metadata(url, metadata)
 
-    async def _incref(self, url: str):
+    async def _incref(self, url: str) -> None:
         metadata = await self.get_inv_metadata(url)
         metadata.inc_refcount()
         await self.set_inv_metadata(url, metadata)
 
-    async def _destroy_inv(self, url: str):
-        await self.conf.inv_metadata.get_attr(url).clear()
+    async def _destroy_inv(self, url: str) -> None:
+        async with self.conf.inv_metadata() as inv_metadata:
+            del inv_metadata[url]
         try:
             del self.invs_data[url]
         except KeyError:
