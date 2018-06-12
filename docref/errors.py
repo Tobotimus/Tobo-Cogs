@@ -6,6 +6,7 @@ __all__ = (
     "AlreadyUpToDate",
     "InvNotAvailable",
     "NoMoreRefs",
+    "Forbidden",
     "InternalError",
     "HTTPError",
     "NotFound",
@@ -26,6 +27,10 @@ class InvNotAvailable(DocRefException):
 
 class NoMoreRefs(DocRefException):
     """Inventory no longer has any references, and can be un-cached."""
+
+
+class Forbidden(DocRefException):
+    """The user tried to do something they're not allowed to do."""
 
 
 class InternalError(DocRefException):
