@@ -23,7 +23,7 @@
 import traceback
 import discord
 from discord.ext import commands
-from redbot.core import Config
+from redbot.core import Config, checks
 from redbot.core.utils.chat_formatting import pagify, box
 
 __all__ = ["UNIQUE_ID", "ErrorLogs"]
@@ -47,6 +47,7 @@ class ErrorLogs:
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_channel(enabled=False, global_errors=False)
 
+    @checks.is_owner()
     @commands.group()
     async def errorlogs(self, ctx: commands.Context):
         """Manage error logs."""
