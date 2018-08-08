@@ -1,6 +1,6 @@
 {
   "author": ["Tobotimus"],
-  "description": "StreamRoles is a cog for automatically assigning roles to users streaming on Twitch. The cog is also able to only assign a streaming role to users of a particular game. Specific users can also be blacklisted and whitelisted.",
+  "description": "StreamRoles is a cog for automatically assigning roles to users streaming on Twitch. The cog is also able to only assign a streaming role to users of a particular game. Specific users can also be blacklisted and whitelisted.\n\nDisclaimer: The first streamrole cog was made by tmerc, as some of you may know. This cog was written completely from the ground up by myself, and although I was unaware he had written a similar cog already, he should be given credit for coming up with the idea first.",
   "install_msg": "Thanks for installing `streamroles`. See `[p]help streamroles` for details.",
   "short": "Hoist users streaming on Twitch.",
   "hidden": false,
