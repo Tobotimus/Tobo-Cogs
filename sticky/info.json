@@ -1,0 +1,12 @@
+{
+  "author": ["Tobotimus"],
+  "description": "Sticky is a cog for sticking a message at the bottom of a channel. When a user sends a message in that channel, the bot will delete its old message and repost it, so it 'sticks' to the bottom.",
+  "install_msg": "Thanks for installing `sticky`. See `[p]help Sticky` for details.",
+  "short": "Sticky messages for your channels!",
+  "hidden": false,
+  "disabled": false,
+  "required_cogs": [],
+  "requirements": [],
+  "tags": ["moderation", "channeltools"],
+  "type": "COG"
+}

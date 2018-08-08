@@ -1,0 +1,12 @@
+{
+  "author": ["Tobotimus"],
+  "description": "ErrorLogs automatically outputs tracebacks of command errors in any text channel(s) you specify. It includes per-channel settings to determine whether global or server-wide errors should be posted.",
+  "install_msg": "Thanks for installing `errorlogs`. See `[p]help errorlogs` for details.",
+  "short": "Log error tracebacks in text channels.",
+  "hidden": false,
+  "disabled": false,
+  "required_cogs": [],
+  "requirements": [],
+  "tags": ["error", "debug", "log"],
+  "type": "COG"
+}

@@ -1,0 +1,12 @@
+{
+  "author": ["Tobotimus"],
+  "description": "WelcomeCount is a cog for sending customisable and context-based welcome messages to new users. It's named after it's main feature - it counts how many members have joined each day, and this can be included in the welcome message.",
+  "install_msg": "Thanks for installing `welcomecount`. See `[p]help wcount` for details.",
+  "short": "Customisable welcome messages.",
+  "hidden": false,
+  "disabled": false,
+  "required_cogs": [],
+  "requirements": [],
+  "tags": ["welcome", "joinmessage"],
+  "type": "COG"
+}

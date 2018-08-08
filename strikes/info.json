@@ -1,0 +1,12 @@
+{
+  "author": ["Tobotimus"],
+  "description": "Strikes is a cog for helping moderation teams warn and keep track of misbehaving users. Strikes are filed with a reason and timestamp, and the cog is helpful for knowing how many times the user has misbehaved *recently*. ModLog integration is also available.",
+  "install_msg": "Thanks for installing `strikes`. See `[p]help Strikes` for details.",
+  "short": "Strike misbehaving users.",
+  "hidden": false,
+  "disabled": false,
+  "required_cogs": [],
+  "requirements": [],
+  "tags": ["warnings", "strikes", "reports", "mod"],
+  "type": "COG"
+}
