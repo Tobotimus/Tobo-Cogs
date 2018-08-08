@@ -24,8 +24,7 @@ import asyncio
 import logging
 from collections import namedtuple
 import discord
-from discord.ext import commands
-from redbot.core import checks, Config
+from redbot.core import checks, Config, commands
 from redbot.core.utils.chat_formatting import pagify, box
 
 log = logging.getLogger("red.reactkarma")

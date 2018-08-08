@@ -29,7 +29,7 @@ UNIQUE_ID = 0x6AFE8000
 
 
 class Sticky:
-    """Sticky messages."""
+    """Sticky messages to your channels."""
 
     STICKY_DELAY = 3
 

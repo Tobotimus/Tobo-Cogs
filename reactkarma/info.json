@@ -1,0 +1,12 @@
+{
+  "author": ["Tobotimus"],
+  "description": "ReactKarma is a cog for counting upvotes and downvotes of everyone the bot sees. The karma leaderboard is global, however the cog can be effectively enabled and disabled per-server.",
+  "install_msg": "Thanks for installing `reactkarma`. See `[p]help ReactKarma` for details.",
+  "short": "Like Reddit Karma, but with discord reactions!",
+  "hidden": false,
+  "disabled": false,
+  "required_cogs": [],
+  "requirements": [],
+  "tags": ["karma", "upvote", "downvote"],
+  "type": "COG"
+}

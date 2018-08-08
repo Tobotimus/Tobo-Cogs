@@ -21,8 +21,7 @@
 # SOFTWARE.
 
 import discord
-from discord.ext import commands
-from redbot.core import Config, checks
+from redbot.core import Config, checks, commands
 from redbot.core.utils.chat_formatting import box
 
 __all__ = ["UNIQUE_ID", "Autorole"]

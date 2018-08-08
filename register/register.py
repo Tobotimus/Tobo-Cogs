@@ -49,7 +49,12 @@ class Register:
 
     @commands.command()
     async def register(self, ctx: commands.Context, *, role: SelfRole):
-        """Register for a role."""
+        """Register for a role.
+
+        This command works as an alias for both `[p]selfrole` and `[p]selfrole
+        remove`. Which one it aliases depends on whether or not you already have
+        the requested role.
+        """
         admin_cog = ctx.bot.get_cog("Admin")
         if admin_cog is None:
             await ctx.send("The `admin` cog must be loaded to use this command.")

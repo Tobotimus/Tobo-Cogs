@@ -21,16 +21,12 @@
 # SOFTWARE.
 
 from datetime import datetime, timedelta
-from collections import namedtuple
 
 import discord
-from discord.ext import commands
-from redbot.core import Config, checks, modlog
+from redbot.core import Config, checks, modlog, commands
 from redbot.core.utils.chat_formatting import box
 
 UNIQUE_ID = 0x134087DE
-
-MockMember = namedtuple("MockMember", "id guild")
 
 
 class Strikes:

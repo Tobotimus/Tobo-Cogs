@@ -22,14 +22,13 @@
 
 import traceback
 import discord
-from discord.ext import commands
-from redbot.core import Config, checks
+from redbot.core import Config, commands, checks
 from redbot.core.utils.chat_formatting import pagify, box
 
 __all__ = ["UNIQUE_ID", "ErrorLogs"]
 
 UNIQUE_ID = 0xd0a3ccbf
-IGNORED_COMMANDS = (
+IGNORED_ERRORS = (
     commands.MissingRequiredArgument,
     commands.BadArgument,
     commands.DisabledCommand,
@@ -92,7 +91,7 @@ class ErrorLogs:
         self, ctx: commands.Context, error: commands.CommandError
     ):
         """Fires when a command error occurs and logs them."""
-        if isinstance(error, IGNORED_COMMANDS):
+        if isinstance(error, IGNORED_ERRORS):
             return
         all_dict = await self.conf.all_channels()
         if not all_dict:
