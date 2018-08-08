@@ -23,5 +23,7 @@
 from .streamroles import StreamRoles
 
 
-def setup(bot):
-    bot.add_cog(StreamRoles.start(bot))
+async def setup(bot):
+    cog = StreamRoles(bot)
+    await cog.initialize()
+    bot.add_cog(cog)

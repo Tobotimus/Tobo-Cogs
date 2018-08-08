@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-__all__ = ["StreamRolesError", "InvalidToken", "StreamNotFound", "APIError"]
+__all__ = ["StreamRolesError", "InvalidClientID", "StreamNotFound", "APIError"]
 
 
 class StreamRolesError(Exception):
@@ -29,7 +29,7 @@ class StreamRolesError(Exception):
     pass
 
 
-class InvalidToken(StreamRolesError):
+class InvalidClientID(StreamRolesError):
     """Invalid twitch token.
 
     The bot owner can set the twitch token using `streamrole clientid`.

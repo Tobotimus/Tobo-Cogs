@@ -21,15 +21,16 @@
 # SOFTWARE.
 
 import asyncio
-import aiohttp
 import logging
-import discord
-from discord.ext import commands
+from typing import Optional
 
-from redbot.core import Config, checks
+import aiohttp
+import discord
+from redbot.core import Config, checks, commands
+from redbot.core.bot import Red
 from redbot.core.utils.chat_formatting import box
 
-from .errors import StreamRolesError, StreamNotFound, InvalidToken, APIError
+from .errors import StreamRolesError, StreamNotFound, InvalidClientID, APIError
 
 log = logging.getLogger("red.streamroles")
 
@@ -39,47 +40,49 @@ UNIQUE_ID = 0x923476AF
 class StreamRoles:
     """Give current twitch streamers in your server a role."""
 
-    STREAMING = 1
     TWITCH_URL = "https://www.twitch.tv/"
-    CHECK_DELAY = 15
 
-    def __init__(self):
+    def __init__(self, bot: Red):
+        self.bot: Red = bot
         self.conf = Config.get_conf(self, force_registration=True, identifier=UNIQUE_ID)
         self.conf.register_global(twitch_clientid=None)
         self.conf.register_guild(
             streamer_role=None, game_whitelist=[], mode="blacklist"
         )
         self.conf.register_member(blacklisted=False, whitelisted=False)
-        self.task = None
+        self.session = aiohttp.ClientSession()
+        self.clientid_set = False
 
-    @classmethod
-    def start(cls, bot: commands.Bot):
-        """Instantiate and begin running the cog."""
-        sroles = cls()
-        sroles.task = bot.loop.create_task(sroles.stream_checker(bot))
-        bot.loop.create_task(sroles.try_get_clientid(bot))
-        return sroles
+    async def initialize(self) -> None:
+        """Initialize the cog."""
+        clientid = await self.conf.twitch_clientid()
+        if not clientid:
+            clientid = await self.try_get_clientid()
+        if clientid:
+            self.clientid_set = True
+        for guild in self.bot.guilds:
+            await self._update_guild(guild)
 
-    async def try_get_clientid(self, bot: commands.Bot):
+    async def try_get_clientid(self) -> Optional[str]:
         """Tries to get the Twitch Client ID from the streams cog."""
-        streams = bot.get_cog("Streams")
+        streams = self.bot.get_cog("Streams")
         if not streams or await self.conf.twitch_clientid():
             return
-        token = await streams.db.tokens.get_raw("TwitchStream", default=None)
-        if token:
-            await self.conf.twitch_clientid.set(token)
+        clientid = await streams.db.clientids.get_raw("TwitchStream", default=None)
+        if clientid:
+            await self.conf.twitch_clientid.set(clientid)
+            return clientid
 
-    @commands.group()
+    @commands.group(autohelp=True, aliases=["streamroles"])
     async def streamrole(self, ctx: commands.Context):
         """Manage settings for StreamRoles."""
-        if ctx.invoked_subcommand is None:
-            await ctx.send_help()
+        pass
 
     @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
     @streamrole.command()
     async def setmode(self, ctx: commands.Context, *, mode: str):
-        """Set the filter mode to blacklist or whitelist."""
+        """Set the user filter mode to blacklist or whitelist."""
         mode = mode.lower()
         if mode not in ("blacklist", "whitelist"):
             await ctx.send("Mode must be `blacklist` or `whitelist`.")
@@ -89,11 +92,10 @@ class StreamRoles:
 
     @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
-    @streamrole.group()
+    @streamrole.group(autohelp=True)
     async def whitelist(self, ctx: commands.Context):
         """Manage the whitelist."""
-        if ctx.invoked_subcommand == self.whitelist:
-            await ctx.send_help()
+        pass
 
     @whitelist.command(name="add")
     async def white_add(self, ctx: commands.Context, *, user: discord.Member):
@@ -118,11 +120,10 @@ class StreamRoles:
 
     @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
-    @streamrole.group()
+    @streamrole.group(autohelp=True)
     async def blacklist(self, ctx: commands.Context):
         """Manage the blacklist."""
-        if ctx.invoked_subcommand == self.blacklist:
-            await ctx.send_help()
+        pass
 
     @blacklist.command(name="add")
     async def black_add(self, ctx: commands.Context, *, user: discord.Member):
@@ -147,7 +148,7 @@ class StreamRoles:
 
     @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
-    @streamrole.group()
+    @streamrole.group(autohelp=True)
     async def games(self, ctx: commands.Context):
         """Manage the game whitelist.
 
@@ -155,8 +156,7 @@ class StreamRoles:
         to members streaming those games. If the game whitelist is empty, the
         game being streamed won't be checked before adding the streamrole.
         """
-        if ctx.invoked_subcommand == self.games:
-            await ctx.send_help()
+        pass
 
     @games.command(name="add")
     async def games_add(self, ctx: commands.Context, *, game: str):
@@ -203,7 +203,7 @@ class StreamRoles:
             message = None
         if message is not None and message.content.lower() in ("y", "yes"):
             await self.conf.guild(ctx.guild).game_whitelist.set([])
-            await ctx.send("Done - The game whitelist has been cleared.")
+            await ctx.send("Done. The game whitelist has been cleared.")
         else:
             await ctx.send("The action was cancelled.")
 
@@ -240,61 +240,95 @@ class StreamRoles:
          4. Obtain your Client-ID!
         """
         await self.conf.twitch_clientid.set(client_id)
+        self.clientid_set = True
         await ctx.send("Client ID set!")
 
-    # Background Task
-    async def stream_checker(self, bot: commands.Bot):
-        """Find all streaming members and give them the streaming role.
+    async def get_streamer_role(self, guild: discord.Guild) -> Optional[discord.Role]:
+        """Get the streamrole for this guild.
 
-        This is a background task which will loop as long as the bot is
-        connected.
+        Arguments
+        ---------
+        guild : discord.Guild
+            The guild to retrieve the streamer role for.
+
+        Returns
+        -------
+        Optional[discord.Role]
+            The role given to streaming users in this guild. ``None``
+            if not set.
         """
-        while not bot.is_closed():
-            for guild in bot.guilds:
-                try:
-                    await self._run_stream_checks(guild)
-                except Exception as exc:
-                    print(repr(exc))
-            await asyncio.sleep(self.CHECK_DELAY)
-
-    async def _run_stream_checks(self, guild: discord.Guild):
-        settings = self.conf.guild(guild)
-        role = await settings.streamer_role()
-        if role is not None:
-            role = next((r for r in guild.roles if r.id == role), None)
-            if role is None:
-                return
+        role_id = await self.conf.guild(guild).streamer_role()
+        if not role_id:
+            return
+        try:
+            role = next(r for r in guild.roles if r.id == role_id)
+        except StopIteration:
+            return
         else:
-            return
-        for member in guild.members:
-            has_role = role in member.roles
-            stream = self._get_stream_handle(member)
-            if stream and await self._is_allowed(member):
-                try:
-                    stream_id = await self.get_stream_id(stream)
-                    data = await self.get_stream_info(stream_id)
-                except StreamRolesError:
-                    data = None
-                if data:
-                    games = await settings.game_whitelist()
-                    if not games or data["game"] in games:
-                        if not has_role:
-                            log.debug(
-                                "Adding streamrole %s to member %s", role.id, member.id
-                            )
-                            await member.add_roles(role)
-                        continue
-            if has_role:
-                log.debug("Removing streamrole %s to member %s", role.id, member.id)
-                await member.remove_roles(role)
+            return role
 
-    def _get_stream_handle(self, member: discord.Member):
+    async def _update_member(
+        self, member: discord.Member, role: Optional[discord.Role] = None
+    ) -> None:
+        if not self.clientid_set:
+            return
+
+        role = role or await self.get_streamer_role(member.guild)
+        if role is None:
+            return
+
         activity = member.activity
-        if activity is None or not isinstance(activity, discord.Streaming):
+        if activity is not None and activity.type == discord.ActivityType.streaming:
+            stream = activity.twitch_name
+        else:
+            stream = None
+
+        has_role = role in member.roles
+        if stream and await self._is_allowed(member):
+            try:
+                stream_id = await self.get_stream_id(stream)
+                data = await self.get_stream_info(stream_id)
+            except StreamRolesError:
+                data = None
+            if data:
+                games = await self.conf.guild(member.guild).game_whitelist()
+                if not games or data["game"] in games:
+                    if not has_role:
+                        log.debug(
+                            "Adding streamrole %s to member %s", role.id, member.id
+                        )
+                        await member.add_roles(role)
+                    return
+
+        if has_role:
+            log.debug("Removing streamrole %s from member %s", role.id, member.id)
+            await member.remove_roles(role)
+
+    async def _update_guild(self, guild: discord.Guild) -> None:
+        if not self.clientid_set:
             return
-        if not activity.url.startswith(self.TWITCH_URL):
+
+        role = await self.get_streamer_role(guild)
+        if role is None:
             return
-        return activity.url.replace(self.TWITCH_URL, "")
+
+        for member in guild.members:
+            await self._update_member(member, role)
+
+    async def on_guild_join(self, guild: discord.Guild) -> None:
+        """Update any members in a new guild."""
+        await self._update_guild(guild)
+
+    async def on_member_update(
+        self, before: discord.Member, after: discord.Member
+    ) -> None:
+        """Apply or remove streamrole when a user's activity changes."""
+        if before.activity != after.activity:
+            await self._update_member(after)
+
+    async def on_member_join(self, member: discord.Member) -> None:
+        """Update a new member who joins."""
+        await self._update_member(member)
 
     async def get_stream_id(self, stream: str):
         """Get a stream's ID, to be used in API requests."""
@@ -309,7 +343,7 @@ class StreamRoles:
             result = data["users"][0]
             return result["_id"]
         if resp.status == 400:
-            raise InvalidToken()
+            raise InvalidClientID()
         elif resp.status == 404:
             raise StreamNotFound(stream)
         else:
@@ -327,7 +361,7 @@ class StreamRoles:
                 return
             return data["stream"]
         if resp.status == 400:
-            raise InvalidToken()
+            raise InvalidClientID()
         elif resp.status == 404:
             raise StreamNotFound(stream_id)
         else:
@@ -347,5 +381,4 @@ class StreamRoles:
         return listed
 
     def __unload(self):
-        if self.task is not None:
-            self.task.cancel()
+        self.session.detach()
