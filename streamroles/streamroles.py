@@ -24,13 +24,10 @@ import asyncio
 import logging
 from typing import Optional
 
-import aiohttp
 import discord
 from redbot.core import Config, checks, commands
 from redbot.core.bot import Red
 from redbot.core.utils.chat_formatting import box
-
-from .errors import StreamRolesError, StreamNotFound, InvalidClientID, APIError
 
 log = logging.getLogger("red.streamroles")
 
@@ -50,7 +47,6 @@ class StreamRoles:
             streamer_role=None, game_whitelist=[], mode="blacklist"
         )
         self.conf.register_member(blacklisted=False, whitelisted=False)
-        self.session = aiohttp.ClientSession()
         self.clientid_set = False
 
     async def initialize(self) -> None:
@@ -160,7 +156,11 @@ class StreamRoles:
 
     @games.command(name="add")
     async def games_add(self, ctx: commands.Context, *, game: str):
-        """Add a game to the game whitelist."""
+        """Add a game to the game whitelist.
+
+        This should *exactly* match the name of the game being played
+        by the streamer as shown in Discord or on Twitch.
+        """
         whitelist = await self.conf.guild(ctx.guild).game_whitelist()
         whitelist.append(game)
         await self.conf.guild(ctx.guild).game_whitelist.set(whitelist)
@@ -285,20 +285,15 @@ class StreamRoles:
 
         has_role = role in member.roles
         if stream and await self._is_allowed(member):
-            try:
-                stream_id = await self.get_stream_id(stream)
-                data = await self.get_stream_info(stream_id)
-            except StreamRolesError:
-                data = None
-            if data:
-                games = await self.conf.guild(member.guild).game_whitelist()
-                if not games or data["game"] in games:
-                    if not has_role:
-                        log.debug(
-                            "Adding streamrole %s to member %s", role.id, member.id
-                        )
-                        await member.add_roles(role)
-                    return
+            game = member.activity.details
+            games = await self.conf.guild(member.guild).game_whitelist()
+            if not games or game in games:
+                if not has_role:
+                    log.debug(
+                        "Adding streamrole %s to member %s", role.id, member.id
+                    )
+                    await member.add_roles(role)
+                return
 
         if has_role:
             log.debug("Removing streamrole %s from member %s", role.id, member.id)
@@ -330,43 +325,6 @@ class StreamRoles:
         """Update a new member who joins."""
         await self._update_member(member)
 
-    async def get_stream_id(self, stream: str):
-        """Get a stream's ID, to be used in API requests."""
-        with aiohttp.ClientSession() as session:
-            url = "https://api.twitch.tv/kraken/users?login={}".format(stream)
-            headers = await self._get_twitch_headers()
-            async with session.get(url, headers=headers) as resp:
-                data = await resp.json(encoding="utf-8")
-        if resp.status == 200:
-            if not data["users"]:
-                raise StreamNotFound(stream)
-            result = data["users"][0]
-            return result["_id"]
-        if resp.status == 400:
-            raise InvalidClientID()
-        elif resp.status == 404:
-            raise StreamNotFound(stream)
-        else:
-            raise APIError()
-
-    async def get_stream_info(self, stream_id: str):
-        """Get info about a stream by its ID."""
-        with aiohttp.ClientSession() as session:
-            url = "https://api.twitch.tv/kraken/streams/{}".format(stream_id)
-            headers = await self._get_twitch_headers()
-            async with session.get(url, headers=headers) as resp:
-                data = await resp.json(encoding="utf-8")
-        if resp.status == 200:
-            if not data["stream"]:
-                return
-            return data["stream"]
-        if resp.status == 400:
-            raise InvalidClientID()
-        elif resp.status == 404:
-            raise StreamNotFound(stream_id)
-        else:
-            raise APIError()
-
     async def _get_twitch_headers(self):
         return {
             "Client-ID": await self.conf.twitch_clientid(),
@@ -379,6 +337,3 @@ class StreamRoles:
         if mode == "blacklist":
             return not listed
         return listed
-
-    def __unload(self):
-        self.session.detach()
