@@ -1,0 +1,12 @@
+{
+  "author": ["Tobotimus"],
+  "description": "UpdateRed is a cog for updating your bot from within discord. When combined with the ability to restart the bot, updating Red becomes a easier than ever!\n\nYou can choose from multiple automatic versions, or specify a particular version you'd like to install.",
+  "install_msg": "Thanks for installing `updatered`. See `[p]help UpdateRed` and `[p]help update` for details.",
+  "short": "A command to update Red!",
+  "hidden": false,
+  "disabled": false,
+  "required_cogs": [],
+  "requirements": [],
+  "tags": ["update"],
+  "type": "COG"
+}

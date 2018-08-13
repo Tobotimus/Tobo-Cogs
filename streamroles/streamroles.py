@@ -289,9 +289,7 @@ class StreamRoles:
             games = await self.conf.guild(member.guild).game_whitelist()
             if not games or game in games:
                 if not has_role:
-                    log.debug(
-                        "Adding streamrole %s to member %s", role.id, member.id
-                    )
+                    log.debug("Adding streamrole %s to member %s", role.id, member.id)
                     await member.add_roles(role)
                 return
 
