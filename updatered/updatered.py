@@ -27,7 +27,6 @@ import sys
 from typing import Iterable, Optional, Tuple
 
 import discord
-import redbot.core
 from redbot.core import commands, checks
 from redbot.core.utils.chat_formatting import pagify
 
@@ -151,6 +150,8 @@ class UpdateRed:
             "pip",
             "install",
             "--upgrade",
+            "--force-reinstall",
+            "--no-cache-dir",
             "--process-dependency-links",
         ]
         if pre:
