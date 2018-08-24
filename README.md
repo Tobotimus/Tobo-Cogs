@@ -7,7 +7,7 @@ Please note that this branch is for **Red V3**. Check out the [master](../../tre
 
 To add this repository, use this command in discord (replace [p] with your bot's prefix):
 
-    [p]repo add Tobo-Cogs https://github.com/Tobotimus/Tobo-Cogs V3/develop
+    [p]repo add Tobo-Cogs https://github.com/Tobotimus/Tobo-Cogs V3
 
 To install a cog, use this command (replace [cog] with the name of the cog you wish to install):
 
