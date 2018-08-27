@@ -22,8 +22,7 @@
 
 import asyncio
 import discord
-from discord.ext import commands
-from redbot.core import Config, checks
+from redbot.core import Config, checks, commands
 
 UNIQUE_ID = 0x6AFE8000
 
