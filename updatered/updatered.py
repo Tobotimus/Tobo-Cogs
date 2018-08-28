@@ -44,6 +44,9 @@ class UpdateRed:
         "https://github.com/Cog-Creators/Red-DiscordBot/tarball/"
         "V3/develop#egg=Red-DiscordBot"
     )
+    IS_VENV: bool = hasattr(sys, "real_prefix") or (
+        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
+    )
 
     def __init__(self, loop: asyncio.AbstractEventLoop):
         self._loop = loop
@@ -156,6 +159,8 @@ class UpdateRed:
         ]
         if pre:
             args.append("--pre")
+        if not self.IS_VENV:
+            args.append("--user")
 
         args.append(package)
 
