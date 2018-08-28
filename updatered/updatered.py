@@ -23,8 +23,9 @@
 import asyncio
 import asyncio.subprocess
 import logging
+import pathlib
 import sys
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import discord
 from redbot.core import commands, checks
@@ -40,13 +41,18 @@ class UpdateRed:
     the `[p]restart` command to restart the bot after updating.
     """
 
-    DEV_LINK = (
+    DEV_LINK: str = (
         "https://github.com/Cog-Creators/Red-DiscordBot/tarball/"
         "V3/develop#egg=Red-DiscordBot"
     )
     IS_VENV: bool = hasattr(sys, "real_prefix") or (
         hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
     )
+    _REDBOT_WIN_EXECUTABLES: List[pathlib.Path] = [
+        pathlib.Path("redbot.exe"),
+        pathlib.Path("redbot-launcher.exe"),
+    ]
+    _BIN_PATH: pathlib.Path = pathlib.Path(sys.executable).parent
 
     def __init__(self, loop: asyncio.AbstractEventLoop):
         self._loop = loop
@@ -161,10 +167,14 @@ class UpdateRed:
             args.append("--pre")
         if not self.IS_VENV:
             args.append("--user")
-
         args.append(package)
 
-        log.debug(f"Updating Red with command: {' '.join(args)}")
+        if sys.platform == "win32":
+            # If we try to update whilst running Red, Windows will throw a permission
+            # error.
+            self.rename_executables()
+
+        log.debug("Updating Red with command: %s", ' '.join(args))
 
         process: asyncio.subprocess.Process = await asyncio.create_subprocess_exec(
             *args,
@@ -180,3 +190,30 @@ class UpdateRed:
             stdout.decode().strip() if stdout else "",
             stderr.decode().strip() if stderr else "",
         )
+
+    @classmethod
+    def rename_executables(cls):
+        """This is a helper method for renaming Red's executables in Windows."""
+        # noinspection PyTypeChecker
+        for exe in map(cls._BIN_PATH.joinpath, cls._REDBOT_WIN_EXECUTABLES):
+            new_exe = exe.with_suffix(".old")
+            if not exe.is_file():
+                continue
+            log.debug("Renaming %(exe)s to %(new_exe)s...", exe=exe, new_exe=new_exe)
+            try:
+                exe.rename(new_exe)
+            except OSError:
+                log.debug("\tRename operation failed!")
+
+    @classmethod
+    def cleanup_old_executables(cls):
+        # noinspection PyTypeChecker
+        for exe in map(cls._BIN_PATH.joinpath, cls._REDBOT_WIN_EXECUTABLES):
+            old_exe = exe.with_suffix(".old")
+            if not old_exe.is_file():
+                continue
+            log.debug("Deleting old file %(old_exe)s...", old_exe=old_exe)
+            try:
+                old_exe.unlink()
+            except OSError:
+                log.debug("\tDelete operation failed!")
