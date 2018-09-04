@@ -159,7 +159,7 @@ class ReactKarma:
         emoji = reaction.emoji
         if isinstance(emoji, discord.Emoji):
             save = emoji.id
-        elif isinstance(emoji, discord.PartialReactionEmoji):
+        elif isinstance(emoji, discord.PartialEmoji):
             await ctx.send(
                 "Setting the {} failed. This is a custom emoji"
                 " which I cannot see.".format(type_)
