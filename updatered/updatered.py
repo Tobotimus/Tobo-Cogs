@@ -28,7 +28,7 @@ import sys
 from typing import Iterable, List, Optional, Tuple
 
 import discord
-from redbot.core import commands, checks
+from redbot.core import checks, commands
 from redbot.core.utils.chat_formatting import pagify
 
 log = logging.getLogger("red.updatered")
@@ -174,7 +174,7 @@ class UpdateRed:
             # error.
             self.rename_executables()
 
-        log.debug("Updating Red with command: %s", ' '.join(args))
+        log.debug("Updating Red with command: %s", " ".join(args))
 
         process: asyncio.subprocess.Process = await asyncio.create_subprocess_exec(
             *args,

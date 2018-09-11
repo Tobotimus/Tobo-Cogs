@@ -34,6 +34,13 @@ log = logging.getLogger("red.streamroles")
 UNIQUE_ID = 0x923476AF
 
 
+async def only_owner_in_dm(ctx: commands.Context):
+    """A command check predicate for restricting DM use to the bot owner."""
+    if isinstance(ctx.channel, discord.abc.PrivateChannel):
+        return await ctx.bot.is_owner(ctx.author)
+    return True
+
+
 class StreamRoles:
     """Give current twitch streamers in your server a role."""
 
@@ -69,12 +76,13 @@ class StreamRoles:
             await self.conf.twitch_clientid.set(clientid)
             return clientid
 
+    @checks.admin_or_permissions(manage_roles=True)
+    @commands.check(only_owner_in_dm)
     @commands.group(autohelp=True, aliases=["streamroles"])
     async def streamrole(self, ctx: commands.Context):
         """Manage settings for StreamRoles."""
         pass
 
-    @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
     @streamrole.command()
     async def setmode(self, ctx: commands.Context, *, mode: str):
@@ -86,7 +94,6 @@ class StreamRoles:
         await self.conf.guild(ctx.guild).mode.set(mode)
         await ctx.tick()
 
-    @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
     @streamrole.group(autohelp=True)
     async def whitelist(self, ctx: commands.Context):
@@ -114,7 +121,6 @@ class StreamRoles:
             return
         await ctx.send(box(", ".join(whitelist)))
 
-    @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
     @streamrole.group(autohelp=True)
     async def blacklist(self, ctx: commands.Context):
@@ -142,7 +148,6 @@ class StreamRoles:
             return
         await ctx.send(box(", ".join(blacklist)))
 
-    @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
     @streamrole.group(autohelp=True)
     async def games(self, ctx: commands.Context):
@@ -215,7 +220,6 @@ class StreamRoles:
         filter_list = tuple(filter(None, filter_list))
         return filter_list
 
-    @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
     @streamrole.command()
     async def setrole(self, ctx: commands.Context, *, role: discord.Role):

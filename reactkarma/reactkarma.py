@@ -23,9 +23,10 @@
 import asyncio
 import logging
 from collections import namedtuple
+
 import discord
-from redbot.core import checks, Config, commands
-from redbot.core.utils.chat_formatting import pagify, box
+from redbot.core import Config, checks, commands
+from redbot.core.utils.chat_formatting import box, pagify
 
 log = logging.getLogger("red.reactkarma")
 
@@ -178,6 +179,7 @@ class ReactKarma:
     async def reset_karma(self, ctx: commands.Context, user: discord.Member):
         """Resets a user's karma."""
         log.debug("Resetting %s's karma", str(user))
+        # noinspection PyTypeChecker
         await self.conf.user(user).karma.set(0)
         await ctx.send("{}'s karma has been reset to 0.".format(user.display_name))
 
