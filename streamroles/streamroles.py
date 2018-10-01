@@ -41,7 +41,7 @@ async def only_owner_in_dm(ctx: commands.Context):
     return True
 
 
-class StreamRoles:
+class StreamRoles(getattr(commands, "Cog", object)):
     """Give current twitch streamers in your server a role."""
 
     TWITCH_URL = "https://www.twitch.tv/"

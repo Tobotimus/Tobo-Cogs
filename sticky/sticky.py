@@ -27,7 +27,7 @@ from redbot.core import Config, checks, commands
 UNIQUE_ID = 0x6AFE8000
 
 
-class Sticky:
+class Sticky(getattr(commands, "Cog", object)):
     """Sticky messages to your channels."""
 
     STICKY_DELAY = 3
