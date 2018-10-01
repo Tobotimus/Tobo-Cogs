@@ -61,7 +61,7 @@ def pug_starter_or_permissions(**perms):
     return commands.check(_check)
 
 
-class R6Pugs:
+class R6Pugs(getattr(commands, "Cog", object)):
     """Cog to run PUGs for Rainbow Six."""
 
     def __init__(self, bot):

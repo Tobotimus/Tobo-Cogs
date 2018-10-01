@@ -39,7 +39,7 @@ IGNORED_ERRORS = (
 )
 
 
-class ErrorLogs:
+class ErrorLogs(getattr(commands, "Cog", object)):
     """Log tracebacks of command errors in discord channels."""
 
     def __init__(self):

@@ -55,7 +55,7 @@ from .errors import (
 UNIQUE_ID = 0x178AC710
 
 
-class DocRef:
+class DocRef(getattr(commands, "Cog", object)):
     """Search for references on documentation webpages.
 
     I need to be able to embed links for this cog to be useful!

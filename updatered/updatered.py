@@ -34,7 +34,7 @@ from redbot.core.utils.chat_formatting import pagify
 log = logging.getLogger("red.updatered")
 
 
-class UpdateRed:
+class UpdateRed(getattr(commands, "Cog", object)):
     """Update Red from Discord.
 
     To get the most out of this cog, run red with the launcher, and use

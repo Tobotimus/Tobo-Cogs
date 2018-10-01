@@ -29,7 +29,7 @@ from redbot.core.utils.chat_formatting import box
 UNIQUE_ID = 0x134087DE
 
 
-class Strikes:
+class Strikes(getattr(commands, "Cog", object)):
     """Strike users to keep track of misbehaviour."""
 
     def __init__(self, bot):

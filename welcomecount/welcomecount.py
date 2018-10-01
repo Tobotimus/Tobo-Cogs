@@ -35,7 +35,7 @@ _DEFAULT_WELCOME = (
 )
 
 
-class WelcomeCount:
+class WelcomeCount(getattr(commands, "Cog", object)):
     """A special welcome cog which keeps a daily count of new users.
 
     Idea came from Twentysix's version of Red on the official Red-DiscordBot

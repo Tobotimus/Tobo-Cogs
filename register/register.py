@@ -44,7 +44,7 @@ class SelfRole(commands.Converter):
         return role
 
 
-class Register:
+class Register(getattr(commands, "Cog", object)):
     """Register - Simplifies two SelfRole commands into one."""
 
     @commands.command()
