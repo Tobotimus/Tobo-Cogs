@@ -35,7 +35,7 @@ __all__ = ["UNIQUE_ID", "ReactKarma"]
 UNIQUE_ID = 0x9c02dcc7
 
 
-class ReactKarma:
+class ReactKarma(getattr(commands, "Cog", object)):
     """Keep track of karma for all users in the bot's scope.
 
     Emojis which affect karma are customised by the owner.
