@@ -127,7 +127,7 @@ class UpdateRed(getattr(commands, "Cog", object)):
 
             if response and response.content.lower() in ("y", "yes"):
                 with io.BytesIO(stdout.encode()) as fp:
-                    cur_date = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+                    cur_date = time.strftime("%Y-%m-%dT%H-%M-%S")
                     await ctx.send(
                         file=discord.File(fp, filename=f"updatered-{cur_date}.log")
                     )
