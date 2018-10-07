@@ -59,10 +59,7 @@ class FilterHelp(commands.Cog):
 
     @helpset_filter.command(name="hide", usage="<name> [scope=server]")
     async def helpset_filter_hide(
-        self,
-        ctx: commands.Context,
-        name: Hideable,
-        scope: Scope = None,
+        self, ctx: commands.Context, name: Hideable, scope: Scope = None
     ):
         """Hide a command or cog explicitly."""
         if name is None:
@@ -79,10 +76,7 @@ class FilterHelp(commands.Cog):
 
     @helpset_filter.command(name="unhide", usage="<name> [scope]")
     async def helpset_filter_unhide(
-        self,
-        ctx: commands.Context,
-        name: Hideable,
-        scope: Scope = None,
+        self, ctx: commands.Context, name: Hideable, scope: Scope = None
     ):
         """Unhide a command or cog."""
         if name is None:
@@ -112,10 +106,7 @@ class FilterHelp(commands.Cog):
 
     @helpset_filter.command(name="show", usage="<name> [scope=server]")
     async def helpset_filter_show(
-        self,
-        ctx: commands.Context,
-        name: Hideable,
-        scope: Scope = None,
+        self, ctx: commands.Context, name: Hideable, scope: Scope = None
     ):
         """Show a command or cog explicitly."""
         if name is None:
@@ -132,10 +123,7 @@ class FilterHelp(commands.Cog):
 
     @helpset_filter.command(name="unshow", usage="<name> [scope]")
     async def helpset_filter_unshow(
-        self,
-        ctx: commands.Context,
-        name: Hideable,
-        scope: Scope = None,
+        self, ctx: commands.Context, name: Hideable, scope: Scope = None
     ):
         """Unshow a command or cog."""
         if name is None:
