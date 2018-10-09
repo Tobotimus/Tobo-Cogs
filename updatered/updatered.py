@@ -101,9 +101,29 @@ class UpdateRed(getattr(commands, "Cog", object)):
         else:
             version_marker = "==" + version
 
+        await self._update_and_communicate(
+            ctx, version_marker=version_marker, pre=pre, dev=dev, extras=extras
+        )
+
+    @checks.is_owner()
+    @commands.command(hidden=True)
+    async def urlupdate(self, ctx: commands.Context, *, url: str) -> None:
+        """Update Red directly from a URL."""
+        await self._update_and_communicate(ctx, url=url)
+
+    async def _update_and_communicate(
+        self,
+        ctx: commands.Context,
+        *,
+        url: Optional[str] = None,
+        version_marker: str = "",
+        pre: bool = False,
+        dev: bool = False,
+        extras: Optional[Iterable[str]] = None,
+    ) -> None:
         async with ctx.typing():
             return_code, stdout = await self.update_red(
-                version_marker, pre=pre, dev=dev, extras=extras
+                url=url, version_marker=version_marker, pre=pre, dev=dev, extras=extras
             )
 
         if return_code:
@@ -138,7 +158,9 @@ class UpdateRed(getattr(commands, "Cog", object)):
 
     async def update_red(
         self,
-        version_marker: str,
+        *,
+        url: Optional[str] = None,
+        version_marker: str = "",
         pre: bool = False,
         dev: bool = False,
         extras: Optional[Iterable[str]] = None,
@@ -158,6 +180,8 @@ class UpdateRed(getattr(commands, "Cog", object)):
 
         if dev:
             package = self.DEV_LINK + extras_str
+        elif url is not None:
+            package = url
         else:
             package = "Red-DiscordBot" + extras_str + version_marker
 
