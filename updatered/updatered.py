@@ -53,6 +53,15 @@ class UpdateRed(getattr(commands, "Cog", object)):
     IS_VENV: ClassVar[bool] = hasattr(sys, "real_prefix") or (
         hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
     )
+    PIP_INSTALL_ARGS: ClassVar[Tuple[str, ...]] = (
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+    )
+    if not IS_VENV:
+        PIP_INSTALL_ARGS += ("--user",)
     _REDBOT_WIN_EXECUTABLES: ClassVar[List[pathlib.Path]] = [
         pathlib.Path("redbot.exe"),
         pathlib.Path("redbot-launcher.exe"),
@@ -185,14 +194,14 @@ class UpdateRed(getattr(commands, "Cog", object)):
         else:
             package = "Red-DiscordBot" + extras_str + version_marker
 
-        args = [sys.executable, "-m", "pip", "download", "--no-deps"]
+        args = (sys.executable, "-m", "pip", "download", "--no-deps")
         if pre:
-            args.append("--pre")
+            args += ("--pre",)
 
-        args.append(package)
+        args += (package,)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            args.extend(("-d", str(tmpdir)))
+            args += ("-d", str(tmpdir))
 
             # Download the Red archive
             log.debug("Downloading Red Archive with command: %s", " ".join(args))
@@ -241,7 +250,7 @@ class UpdateRed(getattr(commands, "Cog", object)):
             end_str_idx = dep_link.rfind("#egg=discord.py") + len("#egg=discord.py")
             dep_link = dep_link[:end_str_idx]
 
-            args = (sys.executable, "-m", "pip", "install", "--upgrade", dep_link)
+            args = self.PIP_INSTALL_ARGS + (dep_link,)
             log.debug("Installing discord.py with command: %s", " ".join(args))
             process = await asyncio.create_subprocess_exec(
                 *args,
@@ -261,14 +270,7 @@ class UpdateRed(getattr(commands, "Cog", object)):
                 # error.
                 self.rename_executables()
 
-            args = (
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "--upgrade",
-                str(archive_path),
-            )
+            args = self.PIP_INSTALL_ARGS + (str(archive_path),)
             log.debug("Installing Red package with command: %s", " ".join(args))
 
             process = None
