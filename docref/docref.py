@@ -19,37 +19,25 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
-import re
+import asyncio
 import pathlib
+import re
 import urllib.parse
-from typing import Optional, Iterator, Tuple, List, Dict
+from typing import Dict, Iterator, List, Optional, Tuple
 
 import aiohttp
 import discord
 import sphinx.util.inventory as sphinx_inv
-from redbot.core import commands, data_manager, checks, Config
+from redbot.core import Config, checks, commands, data_manager
 from redbot.core.utils import chat_formatting as chatutils
 
-from .types import (
-    NodeRef,
-    RefSpec,
-    RawInvMetaData,
-    InvMetaData,
-    RefDict,
-    RawInvData,
-    InvData,
-    FilterFunc,
-    MatchesDict,
-)
 from .errors import (
-    AlreadyUpToDate,
-    InvNotAvailable,
-    HTTPError,
+    AlreadyUpToDate, Forbidden, HTTPError, InternalError, InvNotAvailable, NoMoreRefs,
     NotFound,
-    NoMoreRefs,
-    InternalError,
-    Forbidden,
+)
+from .types import (
+    FilterFunc, InvData, InvMetaData, MatchesDict, NodeRef, RawInvData, RawInvMetaData,
+    RefDict, RefSpec,
 )
 
 UNIQUE_ID = 0x178AC710
@@ -61,7 +49,7 @@ class DocRef(getattr(commands, "Cog", object)):
     I need to be able to embed links for this cog to be useful!
     """
 
-    def __init__(self):
+    def __init__(self, loop: asyncio.AbstractEventLoop):
         self.conf: Config = Config.get_conf(
             self, identifier=UNIQUE_ID, force_registration=True
         )
@@ -70,7 +58,7 @@ class DocRef(getattr(commands, "Cog", object)):
         self.invs_data: Dict[str, InvData] = {}
         self.invs_dir: pathlib.Path = data_manager.cog_data_path(self) / "invs"
         self.invs_dir.mkdir(parents=True, exist_ok=True)
-        self.session: aiohttp.ClientSession = aiohttp.ClientSession()
+        self.session: aiohttp.ClientSession = aiohttp.ClientSession(loop=loop)
 
     @commands.command(aliases=["ref", "rtd", "rtfm"])
     async def docref(self, ctx: commands.Context, sitename: str, *, node_ref: NodeRef):
@@ -736,7 +724,7 @@ class DocRef(getattr(commands, "Cog", object)):
             inv_file.unlink()
 
     def __unload(self) -> None:
-        self.session.close()
+        self.session.loop.create_task(self.session.close())
 
 
 def safe_filename(instr: str) -> str:

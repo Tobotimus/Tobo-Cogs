@@ -26,4 +26,4 @@ from .types import NodeRef  # noqa: F401
 
 
 def setup(bot):
-    bot.add_cog(DocRef())
+    bot.add_cog(DocRef(bot.loop))
