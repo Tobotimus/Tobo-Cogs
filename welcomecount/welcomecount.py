@@ -24,7 +24,7 @@ import datetime
 from typing import List
 
 import discord
-from redbot.core import commands, checks, Config
+from redbot.core import Config, checks, commands
 from redbot.core.utils.chat_formatting import box
 
 __all__ = ["UNIQUE_ID", "WelcomeCount"]
@@ -59,7 +59,7 @@ class WelcomeCount(getattr(commands, "Cog", object)):
 
     @commands.group(invoke_without_command=True)
     @commands.guild_only()
-    @checks.admin_or_permissions(manage_server=True)
+    @checks.admin_or_permissions(manage_guild=True)
     async def wcount(self, ctx: commands.Context):
         """Manage settings for WelcomeCount."""
         if not ctx.invoked_subcommand:

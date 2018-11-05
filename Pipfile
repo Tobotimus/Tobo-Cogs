@@ -4,8 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-yarl = "==0.18.0"
-"discord.py" = {git = "https://github.com/Rapptz/discord.py", editable = true, ref = "7eb918b19e3e60b56eb9039eb267f8f3477c5e17", extras = ["voice"]}
+"discord.py" = {git = "https://github.com/Rapptz/discord.py", editable = true, ref = "rewrite", extras = ["voice"]}
 red-discordbot = {git = "https://github.com/Cog-Creators/Red-DiscordBot", editable = true, ref = "V3/develop", extras = ["voice", "mongo"]}
 sphinx = "*"
 
