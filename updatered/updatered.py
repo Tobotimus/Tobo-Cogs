@@ -115,9 +115,14 @@ class UpdateRed(getattr(commands, "Cog", object)):
         )
 
     @checks.is_owner()
-    @commands.command(hidden=True)
+    @commands.command()
     async def urlupdate(self, ctx: commands.Context, *, url: str) -> None:
-        """Update Red directly from a URL."""
+        """Update Red directly from a tarball URL.
+
+        For installing directly from a git revision on GitHub, the URL
+        should be in the following form:
+        - `https://github.com/<user>/Red-DiscordBot/tarball/<revision>#egg=Red-DiscordBot[<extras>]`
+        """
         await self._update_and_communicate(ctx, url=url)
 
     async def _update_and_communicate(
