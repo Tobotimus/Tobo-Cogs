@@ -1,5 +1,9 @@
 {
+  "name": "Tobo-Cogs",
   "author": ["Tobotimus"],
   "short": "Cogs made by Tobotimus.",
-  "install_msg": "Hi, thanks for installing my humble repository! If you ever need help with the cog, or you think you found something wrong, come let me know in the *#support_tobo-cogs* channel over at the Red Cog Support server: <https://discord.gg/c2YXKZF>.\n\n - Tobotimus"
+  "description": "Various cogs for bot management and customisation, server administration and moderation, and some fun stuff for users too. All cogs are made to be easy for anyone to use!",
+  "install_msg": "Hi, thanks for installing my humble repository! If you ever need help with the cog, or you think you found something wrong, come let me know in the *#support_tobo-cogs* channel over at the Red Cog Support server: <https://discord.gg/c2YXKZF>.\n\n - Tobotimus",
+  "requirements": [],
+  "tags": []
 }
