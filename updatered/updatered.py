@@ -123,7 +123,10 @@ class UpdateRed(getattr(commands, "Cog", object)):
         should be in the following form:
         - `https://github.com/<user>/Red-DiscordBot/tarball/<revision>#egg=Red-DiscordBot[<extras>]`
         """
-        await self._update_and_communicate(ctx, url=url)
+        try:
+            await self._update_and_communicate(ctx, url=url)
+        except tarfile.ReadError:
+            await ctx.send("That link does not appear to point to a tarball.")
 
     async def _update_and_communicate(
         self,
