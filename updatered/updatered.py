@@ -28,7 +28,6 @@ import pathlib
 import re
 import sys
 import tarfile
-import tempfile
 import time
 from typing import ClassVar, Iterable, List, Optional, Pattern, Tuple
 
@@ -117,12 +116,7 @@ class UpdateRed(getattr(commands, "Cog", object)):
     @checks.is_owner()
     @commands.command()
     async def urlupdate(self, ctx: commands.Context, *, url: str) -> None:
-        """Update Red directly from a tarball URL.
-
-        For installing directly from a git revision on GitHub, the URL
-        should be in the following form:
-        - `https://github.com/<user>/Red-DiscordBot/tarball/<revision>#egg=Red-DiscordBot[<extras>]`
-        """
+        """Update Red directly from a pip-installable URL."""
         try:
             await self._update_and_communicate(ctx, url=url)
         except tarfile.ReadError:
@@ -202,64 +196,22 @@ class UpdateRed(getattr(commands, "Cog", object)):
         else:
             package = "Red-DiscordBot" + extras_str + version_marker
 
-        args = (sys.executable, "-m", "pip", "download", "--no-deps")
+        args = self.PIP_INSTALL_ARGS
         if pre:
             args += ("--pre",)
 
         args += (package,)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            args += ("-d", str(tmpdir))
+        if sys.platform == "win32":
+            # If we try to update whilst running Red, Windows will throw a permission
+            # error.
+            self.rename_executables()
 
-            # Download the Red archive
-            log.debug("Downloading Red Archive with command: %s", " ".join(args))
-            process: asyncio.subprocess.Process = await asyncio.create_subprocess_exec(
-                *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-                loop=self._loop,
-            )
-            stdout_data: bytes = (await process.communicate())[0]
-            if stdout_data is not None:
-                stdout: str = stdout_data.decode()
-            else:
-                stdout: str = ""
-            if process.returncode:
-                return process.returncode, stdout
+        log.debug("Installing Red package with command: %s", " ".join(args))
 
-            for line in stdout.splitlines():
-                match = self._SAVED_PKG_RE.match(line)
-                if match:
-                    archive_path = pathlib.Path(match["path"].strip())
-                    break
-            else:
-                raise RuntimeError("Unexpected output from `pip download`")
-
-            # Rename archive to something universally recognisable.
-            # Sometimes the archive name is just "develop" e.g. on a dev update;
-            # Pip doesn't like that
-            rename_to = archive_path.parent / "Red-DiscordBot.tar.gz"
-            archive_path.replace(rename_to)
-            archive_path = rename_to
-
-            # Extract dependency_links.txt to install discord.py
-            with tarfile.open(archive_path) as archive:
-                dep_link = ""
-                for member in archive:
-                    if member.name.endswith("dependency_links.txt"):
-                        with archive.extractfile(member) as file:
-                            dep_link = file.readline().decode()
-                            break
-                else:
-                    raise RuntimeError("No dependency_links.txt found!")
-
-            # Remove trailing version number in egg link
-            # For some reason it creates a bunch of weird shit in stdout
-            end_str_idx = dep_link.rfind("#egg=discord.py") + len("#egg=discord.py")
-            dep_link = dep_link[:end_str_idx]
-
-            args = self.PIP_INSTALL_ARGS + (dep_link,)
-            log.debug("Installing discord.py with command: %s", " ".join(args))
+        process = None
+        stdout: str = ""
+        try:
             process = await asyncio.create_subprocess_exec(
                 *args,
                 stdout=asyncio.subprocess.PIPE,
@@ -270,33 +222,9 @@ class UpdateRed(getattr(commands, "Cog", object)):
             stdout_data = (await process.communicate())[0]
             if stdout_data is not None:
                 stdout += "\n" + stdout_data.decode()
-            if process.returncode:
-                return process.returncode, stdout
-
-            if sys.platform == "win32":
-                # If we try to update whilst running Red, Windows will throw a permission
-                # error.
-                self.rename_executables()
-
-            args = self.PIP_INSTALL_ARGS + (str(archive_path),)
-            log.debug("Installing Red package with command: %s", " ".join(args))
-
-            process = None
-            try:
-                # Install package itself
-                process = await asyncio.create_subprocess_exec(
-                    *args,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.STDOUT,
-                    loop=self._loop,
-                )
-
-                stdout_data = (await process.communicate())[0]
-                if stdout_data is not None:
-                    stdout += "\n" + stdout_data.decode()
-            finally:
-                if sys.platform == "win32" and process and process.returncode:
-                    self.undo_rename_executables()
+        finally:
+            if sys.platform == "win32" and process and process.returncode:
+                self.undo_rename_executables()
 
         return process.returncode, stdout
 
