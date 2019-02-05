@@ -47,7 +47,7 @@ class ErrorLogs(getattr(commands, "Cog", object)):
         self.conf.register_channel(enabled=False, global_errors=False)
 
     @checks.is_owner()
-    @commands.group()
+    @commands.group(autohelp=False)
     async def errorlogs(self, ctx: commands.Context):
         """Manage error logs."""
         if not ctx.invoked_subcommand:
