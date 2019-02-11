@@ -32,7 +32,7 @@ log = logging.getLogger("red.reactkarma")
 
 __all__ = ["UNIQUE_ID", "ReactKarma"]
 
-UNIQUE_ID = 0x9c02dcc7
+UNIQUE_ID = 0x9C02DCC7
 
 
 class ReactKarma(getattr(commands, "Cog", object)):

@@ -29,7 +29,7 @@ from redbot.core.utils.chat_formatting import box
 
 __all__ = ["UNIQUE_ID", "WelcomeCount"]
 
-UNIQUE_ID = 0x6f7951a4
+UNIQUE_ID = 0x6F7951A4
 _DEFAULT_WELCOME = (
     "Welcome, {mention}, to {server}!\n\n" "{count} user{plural} joined today!"
 )

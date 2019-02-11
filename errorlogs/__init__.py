@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 from redbot.core.bot import Red
+
 from .errorlogs import ErrorLogs
 
 

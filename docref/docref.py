@@ -32,12 +32,24 @@ from redbot.core import Config, checks, commands, data_manager
 from redbot.core.utils import chat_formatting as chatutils
 
 from .errors import (
-    AlreadyUpToDate, Forbidden, HTTPError, InternalError, InvNotAvailable, NoMoreRefs,
+    AlreadyUpToDate,
+    Forbidden,
+    HTTPError,
+    InternalError,
+    InvNotAvailable,
+    NoMoreRefs,
     NotFound,
 )
 from .types import (
-    FilterFunc, InvData, InvMetaData, MatchesDict, NodeRef, RawInvData, RawInvMetaData,
-    RefDict, RefSpec,
+    FilterFunc,
+    InvData,
+    InvMetaData,
+    MatchesDict,
+    NodeRef,
+    RawInvData,
+    RawInvMetaData,
+    RefDict,
+    RefSpec,
 )
 
 UNIQUE_ID = 0x178AC710

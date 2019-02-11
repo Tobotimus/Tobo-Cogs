@@ -23,7 +23,7 @@
 from datetime import datetime, timedelta
 
 import discord
-from redbot.core import Config, checks, modlog, commands
+from redbot.core import Config, checks, commands, modlog
 from redbot.core.utils.chat_formatting import box
 
 UNIQUE_ID = 0x134087DE

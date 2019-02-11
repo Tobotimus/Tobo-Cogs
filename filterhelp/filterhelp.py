@@ -6,7 +6,7 @@ from redbot.core.core_commands import Core
 from filterhelp.formatter import HideHelpFormatter
 from .converters import EnabledState, Hideable, Scope
 
-UNIQUE_ID = 0x10b231a2
+UNIQUE_ID = 0x10B231A2
 
 
 class FilterHelp(commands.Cog):

@@ -21,13 +21,14 @@
 # SOFTWARE.
 
 import traceback
+
 import discord
-from redbot.core import Config, commands, checks
-from redbot.core.utils.chat_formatting import pagify, box
+from redbot.core import Config, checks, commands
+from redbot.core.utils.chat_formatting import box, pagify
 
 __all__ = ["UNIQUE_ID", "ErrorLogs"]
 
-UNIQUE_ID = 0xd0a3ccbf
+UNIQUE_ID = 0xD0A3CCBF
 IGNORED_ERRORS = (
     commands.MissingRequiredArgument,
     commands.BadArgument,

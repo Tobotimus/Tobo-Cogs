@@ -2,8 +2,8 @@ import tempfile
 
 import py
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
 import redbot.core.data_manager
+from _pytest.monkeypatch import MonkeyPatch
 
 
 @pytest.fixture(scope="session")

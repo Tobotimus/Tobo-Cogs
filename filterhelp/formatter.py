@@ -1,8 +1,7 @@
-from typing import Tuple
+from typing import Iterator, Tuple
 
 from redbot.core import Config, commands
 from redbot.core.help_formatter import Help
-# noinspection PyProtectedMember
 from redbot.core.utils import async_filter
 
 from .converters import EnabledState
@@ -14,10 +13,9 @@ class HideHelpFormatter(Help):
         self.conf: Config = conf
 
     async def _get_options(self) -> Tuple["EnabledState", "EnabledState"]:
-        ctx = self.context
         show_hidden = None
         show_forbidden = None
-        for scope in map(str, (ctx.channel.id, ctx.guild.id, 0)):
+        for scope in self._get_scope_list():
             options = await self.conf.custom("OPTIONS", scope).all()
             _show_hidden = options["show_hidden"]
             _show_forbidden = options["show_forbidden"]
@@ -59,14 +57,13 @@ class HideHelpFormatter(Help):
         return await async_filter(predicate, iterable)
 
     async def _get_override(self, command: commands.Command) -> bool:
-        ctx = self.context
         to_check = []
         cog = command.instance
         if not self.is_cog() and command.parent is None and cog is not None:
             # Check cog's rules if it's a top-level command
             to_check.append(cog.__class__.__name__)
         to_check.append(command.qualified_name)
-        for scope in map(str, (ctx.channel.id, ctx.guild.id, 0)):
+        for scope in self._get_scope_list():
             for name in to_check:
                 overrides = await self.conf.custom("OVERRIDES", scope).all()
                 if name in overrides["hidden"]:
@@ -82,3 +79,11 @@ class HideHelpFormatter(Help):
             return False
         finally:
             self.context.permission_state = old_state
+
+    def _get_scope_list(self) -> Iterator[str]:
+        ctx = self.context
+        scopes = [ctx.channel.id]
+        if ctx.guild is not None:
+            scopes.append(ctx.guild.id)
+        scopes.append(0)
+        return map(str, scopes)

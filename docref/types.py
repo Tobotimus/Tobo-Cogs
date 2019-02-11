@@ -21,12 +21,12 @@
 # SOFTWARE.
 
 import re
-from typing import Any, Optional, Union, Tuple, List, Dict, Callable
 from collections import namedtuple
-
-from .errors import NoMoreRefs, InternalError
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from redbot.core import commands
+
+from .errors import InternalError, NoMoreRefs
 
 __all__ = (
     "NodeRef",
