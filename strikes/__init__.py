@@ -23,5 +23,7 @@
 from .strikes import Strikes
 
 
-def setup(bot):
-    bot.add_cog(Strikes(bot))
+async def setup(bot):
+    cog = Strikes(bot)
+    await cog.initialize()
+    bot.add_cog(cog)

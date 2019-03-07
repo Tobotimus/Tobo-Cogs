@@ -19,41 +19,101 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+import contextlib
+import os
+import sqlite3
+from collections import defaultdict
 from datetime import datetime, timedelta
+from typing import Iterator, List, Tuple, Union, cast
 
 import discord
-from redbot.core import Config, checks, commands, modlog
-from redbot.core.utils.chat_formatting import box
+from redbot.core import Config, checks, commands, data_manager, modlog
+from redbot.core.bot import Red
+from redbot.core.i18n import Translator
+from redbot.core.utils.chat_formatting import box, pagify
+
+try:
+    from tabulate import tabulate
+except ImportError:
+    raise RuntimeError(
+        "tabulate is not installed. Please install it with `pip install "
+        "tabulate[widechars]` before loading strikes."
+    )
 
 UNIQUE_ID = 0x134087DE
 
+_CASETYPE = {
+    "name": "strike",
+    "default_setting": True,
+    "image": "\N{BOWLING}",
+    "case_str": "Strike",
+}
 
-class Strikes(getattr(commands, "Cog", object)):
+_ = Translator(":blobducklurk:", __file__)
+
+
+class Strikes(commands.Cog):
     """Strike users to keep track of misbehaviour."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: Red, db: Union[str, bytes, os.PathLike, None] = None):
         self.bot = bot
-        self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
-        self.conf.register_member(strikes=[])
-        bot.loop.create_task(self._register_casetype())
+        self.db = db or data_manager.cog_data_path(self) / "strikes.db"
+        super().__init__()
 
-    @staticmethod
-    async def _register_casetype():
-        casetype = {
-            "name": "strike",
-            "default_setting": True,
-            "image": "\N{BOWLING}",
-            "case_str": "Strike",
-        }
-        try:
-            await modlog.register_casetype(**casetype)
-        except RuntimeError:
-            pass
+    async def initialize(self):
+        # Casetype registration
+        with contextlib.suppress(RuntimeError):
+            await modlog.register_casetype(**_CASETYPE)
+
+        # Data definition (table creation)
+        ddl_path = data_manager.bundled_data_path(self) / "ddl.sql"
+        with self._db_connect() as conn, ddl_path.open() as ddl_file:
+            cursor = conn.cursor()
+            cursor.execute(ddl_file.read())
+
+            # Data migration from Config to SQLite
+            json_file = data_manager.cog_data_path(self) / "settings.json"
+            if json_file.exists():
+                conf = Config.get_conf(self, UNIQUE_ID)
+                all_members = await conf.all_members()
+
+                def _gen_rows() -> Iterator[Tuple[int, int, int, int, str]]:
+                    for guild_id, guild_data in all_members.items():
+                        for member_id, member_data in guild_data.items():
+                            for strike in member_data.get("strikes", []):
+                                yield (
+                                    strike["id"],
+                                    member_id,
+                                    guild_id,
+                                    strike["moderator"],
+                                    strike["reason"],
+                                )
+
+                cursor.executemany(
+                    """
+                    INSERT INTO strikes(id, user, guild, moderator, reason)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    _gen_rows(),
+                )
+                json_file.replace(json_file.parent / "settings.old.json")
+
+    def _db_connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(cast(os.PathLike, self.db))
+        conn.row_factory = sqlite3.Row
+        conn.create_function("is_member", 2, self._is_member)
+        return conn
+
+    def _is_member(self, user_id: int, guild_id: int) -> bool:
+        # Function exported to SQLite as is_member
+        guild = self.bot.get_guild(guild_id)
+        if guild is None:
+            return False
+        return guild.get_member(user_id) is not None
 
     async def strike_user(
         self, member: discord.Member, reason: str, moderator: discord.Member
-    ):
+    ) -> List[int]:
         """Give a user a strike.
 
         Parameters
@@ -67,23 +127,28 @@ class Strikes(getattr(commands, "Cog", object)):
 
         Returns
         -------
-        `list` of `dict`
-            The new list of strikes for the member.
+        List[int]
+            A list of IDs for all strikes this user has received.
 
         """
-        date = datetime.now()
-        new_strike = {
-            "timestamp": date.timestamp(),
-            "reason": reason,
-            "moderator": moderator.id,
-            "id": discord.utils.time_snowflake(date),
-        }
-        settings = self.conf.member(member)
-        strikes = await settings.strikes()
-        strikes.append(new_strike)
-        await settings.strikes.set(strikes)
-        await self.create_case(member, date, reason, moderator)
-        return strikes
+        now = datetime.now()
+        strike_id = discord.utils.time_snowflake(now)
+        with self._db_connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO strikes(id, user, guild, moderator, reason)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (strike_id, member.id, member.guild.id, moderator.id, reason),
+            )
+            cursor.execute(
+                "SELECT id FROM strikes WHERE user == ? AND guild == ?",
+                (member.id, member.guild.id),
+            )
+            result = cursor.fetchall()
+        await self.create_case(member, now, reason, moderator)
+        return [row["id"] for row in result]
 
     async def create_case(
         self,
@@ -132,11 +197,13 @@ class Strikes(getattr(commands, "Cog", object)):
     ):
         """Strike a user."""
         strikes = await self.strike_user(member, reason, ctx.author)
-        month_ago = (datetime.now() - timedelta(days=30)).timestamp()
-        last_month = [s for s in strikes if s["timestamp"] > month_ago]
+        month_ago = discord.utils.time_snowflake((datetime.now() - timedelta(days=30)))
+        last_month = [id_ for id_ in strikes if id_ > month_ago]
         await ctx.send(
-            "Done. {0.display_name} now has {1} strikes ({2} in the"
-            " past 30 days).".format(member, len(strikes), len(last_month))
+            _(
+                "Done. {user.display_name} now has {num} strikes ({recent_num} in the"
+                " past 30 days)."
+            ).format(user=member, num=len(strikes), recent_num=len(last_month))
         )
 
     @checks.mod_or_permissions(kick_members=True)
@@ -144,81 +211,220 @@ class Strikes(getattr(commands, "Cog", object)):
     @commands.command()
     async def delstrike(self, ctx: commands.Context, strike_id: int):
         """Remove a single strike by its ID."""
-        all_data = await self.conf.all_members(ctx.guild)
-        found = False
-        for mem_id, mem_data in all_data.items():
-            to_remove = None
-            for strike in mem_data["strikes"]:
-                if strike["id"] == strike_id:
-                    to_remove = strike
-                    break
-            if to_remove is not None:
-                found = True
-                mem_data["strikes"].remove(to_remove)
-                member = ctx.guild.get_member(mem_id)
-                if member is None:
-                    await ctx.send(
-                        "The user who received that strike has since left the server."
-                    )
-                    return
-                await self.conf.member(member).set(mem_data)
-                break
-        if found:
-            await ctx.send("Strike removed successfully.")
-        else:
-            await ctx.send("I could not find a strike with that ID.")
+        with self._db_connect() as conn:
+            conn.execute("DELETE FROM strikes WHERE id == ?", (strike_id,))
+        await ctx.tick()
 
     @checks.mod_or_permissions(kick_members=True)
     @commands.guild_only()
     @commands.command()
     async def delstrikes(self, ctx: commands.Context, *, member: discord.Member):
         """Remove all strikes from a member."""
-        await self.conf.member(member).clear()
-        await ctx.send("Done.")
+        with self._db_connect() as conn:
+            conn.execute(
+                "DELETE FROM strikes WHERE user == ? AND guild == ?",
+                (member.id, member.guild.id),
+            )
+        await ctx.tick()
 
     @checks.mod_or_permissions(kick_members=True)
     @commands.guild_only()
     @commands.command()
     async def strikes(self, ctx: commands.Context, *, member: discord.Member):
         """Show all previous strikes for a user."""
-        strikes = await self.conf.member(member).strikes()
-        if not strikes:
+        with self._db_connect() as conn:
+            cursor = conn.execute(
+                """
+                SELECT id, moderator, reason FROM strikes
+                WHERE user == ? AND guild == ?
+                ORDER BY id DESC
+                """,
+                (member.id, member.guild.id),
+            )
+            table = self._create_table(cursor, member.guild)
+        if table:
+            pages = pagify(table)
             await ctx.send(
-                "{0.display_name} has never received any strikes." "".format(member)
+                _("Strikes for {user.display_name}:\n").format(user=member)
+                + box(next(pages))
+            )
+            for page in pages:
+                await ctx.send(box(page))
+        else:
+            await ctx.send(
+                _("{user.display_name} has never received any strikes.").format(
+                    user=member
+                )
+            )
+
+    @commands.command()
+    async def allstrikes(self, ctx: commands.Context, num_days: int = 30):
+        """Show all recent individual strikes."""
+        if num_days < 0:
+            await ctx.send(
+                _(
+                    "You must specify a number of days of at least 0 to retreive "
+                    "strikes from."
+                )
             )
             return
-        new_strikes = []
-        for strike in strikes:
-            new_strike = strike.copy()
-            mod_id = strike["moderator"]
-            new_strike["timestamp"] = datetime.utcfromtimestamp(new_strike["timestamp"])
-            new_strike["moderator"] = ctx.guild.get_member(mod_id) or mod_id
-            new_strikes.append(new_strike)
-        strikes = new_strikes
-
-        max_name_len = max(map(lambda s: len(str(s["moderator"])), strikes))
-        max_rsn_len = max(map(lambda s: len(str(s["reason"])), strikes))
-        # Headers
-        headers = (
-            "Time + Date (UTC)",
-            "Moderator" + " " * (max_name_len - 9),
-            "Strike ID" + " " * (len(str(strikes[0]["id"])) - 9),
-            "Reason" + " " * (max_rsn_len - 6),
+        start_id = (
+            discord.utils.time_snowflake(datetime.now() - timedelta(days=num_days))
+            if num_days
+            else 0
         )
-        lines = [" | ".join(headers)]
-        # Header underlines
-        lines.append(" | ".join(("-" * len(h) for h in headers)))
-        for strike in strikes:
-            # Align fields to header width
-            fields = (
-                strike["timestamp"].strftime("%I:%M %p %d-%m-%y"),
-                str(strike["moderator"]),
-                str(strike["id"]),
-                strike["reason"],
+        with self._db_connect() as conn:
+            cursor = conn.execute(
+                """
+                SELECT id, user, moderator, reason FROM strikes
+                WHERE
+                  guild == ?
+                  AND id > ?
+                  AND is_member(user, guild)
+                ORDER BY id DESC
+                """,
+                (ctx.guild.id, start_id),
             )
-            padding = [" " * (len(h) - len(f)) for h, f in zip(headers, fields)]
-            fields = tuple(f + padding[i] for i, f in enumerate(fields))
-            lines.append(" | ".join(fields))
-        await ctx.send(
-            "Strikes for {0.display_name}:\n".format(member) + box("\n".join(lines))
+            table = self._create_table(cursor, ctx.guild)
+
+        if table:
+            pages = pagify(table)
+            if num_days:
+                await ctx.send(
+                    _("All strikes received by users in the past {num} days:\n").format(
+                        num=num_days
+                    )
+                    + box(next(pages))
+                )
+            else:
+                await ctx.send(
+                    _("All strikes received by users in this server:\n")
+                    + box(next(pages))
+                )
+            for page in pages:
+                await ctx.send(box(page))
+        else:
+            if num_days:
+                await ctx.send(
+                    _(
+                        "No users in this server have received strikes in the past "
+                        "{num} days!"
+                    ).format(num=num_days)
+                )
+            else:
+                await ctx.send(_("No users in this server have ever received strikes!"))
+
+    @commands.command()
+    async def strikecounts(
+        self, ctx: commands.Context, num_days: int = 0, num_members: int = 100
+    ):
+        """Show the strike count for multiple users.
+
+        This will show the count of users who have received a strike in
+        the past `[num_days]` days. `[num_days]` defaults to 0, which
+        means this will retreive .
+
+        `[num_members]` is the maximum amount of members to show the
+        strike count for. Defaults to 100.
+        """
+        if num_days < 0:
+            await ctx.send(
+                _(
+                    "You must specify a number of days of at least 0 to retreive "
+                    "strikes from."
+                )
+            )
+            return
+        if num_members < 1:
+            await ctx.send(
+                _(
+                    "You must specify a number of members of at least 1 to retreive "
+                    "strikes for."
+                )
+            )
+        start_id = (
+            discord.utils.time_snowflake(datetime.now() - timedelta(days=num_days))
+            if num_days
+            else 0
         )
+        with self._db_connect() as conn:
+            cursor = conn.execute(
+                """
+                SELECT max(id) as most_recent_id, user, count(user) as count FROM strikes
+                WHERE
+                  guild = ?
+                  AND id > ?
+                  AND is_member(user, guild)
+                GROUP BY guild, user
+                ORDER BY count DESC
+                LIMIT ?
+                """,
+                (ctx.guild.id, start_id, num_members),
+            )
+            table = self._create_table(cursor, ctx.guild)
+
+        if table:
+            pages = pagify(table)
+            if num_days:
+                await ctx.send(
+                    _(
+                        "Number of strikes received by users in the past {num} days:\n"
+                    ).format(num=num_days)
+                    + box(next(pages))
+                )
+            else:
+                await ctx.send(
+                    _("Number of strikes received by users in this server:\n")
+                    + box(next(pages))
+                )
+            for page in pages:
+                await ctx.send(box(page))
+        else:
+            if num_days:
+                await ctx.send(
+                    _(
+                        "No users in this server have received strikes in the past "
+                        "{num} days!"
+                    ).format(num=num_days)
+                )
+            else:
+                await ctx.send(_("No users in this server have ever received strikes!"))
+
+    @staticmethod
+    def _create_table(cursor: sqlite3.Cursor, guild: discord.Guild) -> str:
+        tabular_data = defaultdict(list)
+        for strike in cursor:
+            with contextlib.suppress(IndexError):
+                user = guild.get_member(strike["user"])
+                tabular_data[_("User")].append(user)
+            with contextlib.suppress(IndexError):
+                mod_id = strike["moderator"]
+                tabular_data[_("Moderator")].append(guild.get_member(mod_id) or mod_id)
+            with contextlib.suppress(IndexError):
+                strike_id = strike["id"]
+                tabular_data[_("Time & Date (UTC)")].append(
+                    discord.utils.snowflake_time(strike_id).strftime("%Y-%m-%d %H:%M")
+                )
+                tabular_data[_("Strike ID")].append(strike_id)
+            with contextlib.suppress(IndexError):
+                strike_count = strike["count"]
+                tabular_data[_("Strike Count")].append(strike_count)
+            with contextlib.suppress(IndexError):
+                recent_id = strike["most_recent_id"]
+                tabular_data[_("Latest Strike Given (UTC)")].append(
+                    discord.utils.snowflake_time(recent_id).strftime("%Y-%m-%d %H:%M")
+                )
+            with contextlib.suppress(IndexError):
+                reason = strike["reason"]
+                if reason:
+                    reason = "\n".join(
+                        pagify(reason, delims=[" "], page_length=25, shorten_by=0)
+                    )
+                tabular_data[_("Reason")].append(reason)
+
+        if tabular_data:
+            return tabulate(
+                tabular_data, headers="keys", tablefmt="fancy_grid", numalign="left"
+            )
+        else:
+            return ""

@@ -6,7 +6,7 @@
   "hidden": false,
   "disabled": false,
   "required_cogs": [],
-  "requirements": [],
+  "requirements": ["tabulate[widechars]"],
   "tags": ["warnings", "strikes", "reports", "mod"],
   "type": "COG"
 }
