@@ -36,8 +36,8 @@ try:
     from tabulate import tabulate
 except ImportError:
     raise RuntimeError(
-        "tabulate is not installed. Please install it with `pip install "
-        "tabulate[widechars]` before loading strikes."
+        "tabulate is not installed. Please install it with the `[p]pipinstall "
+        "tabulate[widechars]` command in Discord before loading strikes."
     )
 
 UNIQUE_ID = 0x134087DE
