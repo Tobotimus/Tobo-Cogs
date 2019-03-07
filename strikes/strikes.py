@@ -243,7 +243,7 @@ class Strikes(commands.Cog):
             )
             table = self._create_table(cursor, member.guild)
         if table:
-            pages = pagify(table)
+            pages = pagify(table, shorten_by=25)
             await ctx.send(
                 _("Strikes for {user.display_name}:\n").format(user=member)
                 + box(next(pages))
@@ -259,7 +259,13 @@ class Strikes(commands.Cog):
 
     @commands.command()
     async def allstrikes(self, ctx: commands.Context, num_days: int = 30):
-        """Show all recent individual strikes."""
+        """Show all recent individual strikes.
+
+        `[num_days]` is the number of past days of strikes to display.
+        Defaults to 30. When 0, all strikes from the beginning of time
+        will be counted shown.
+
+        """
         if num_days < 0:
             await ctx.send(
                 _(
@@ -288,7 +294,7 @@ class Strikes(commands.Cog):
             table = self._create_table(cursor, ctx.guild)
 
         if table:
-            pages = pagify(table)
+            pages = pagify(table, shorten_by=25)
             if num_days:
                 await ctx.send(
                     _("All strikes received by users in the past {num} days:\n").format(
@@ -316,16 +322,28 @@ class Strikes(commands.Cog):
 
     @commands.command()
     async def strikecounts(
-        self, ctx: commands.Context, num_days: int = 0, num_members: int = 100
+        self,
+        ctx: commands.Context,
+        num_days: int = 0,
+        limit: int = 100,
+        sort_by: str = "count",
+        sort_order: str = "desc",
     ):
         """Show the strike count for multiple users.
 
-        This will show the count of users who have received a strike in
-        the past `[num_days]` days. `[num_days]` defaults to 0, which
-        means this will retreive .
+        `[num_days]` is the number of past days of strikes to count.
+        Defaults to 0, which means all strikes from the beginning of
+        time will be counted.
 
-        `[num_members]` is the maximum amount of members to show the
+        `[limit]` is the maximum amount of members to show the
         strike count for. Defaults to 100.
+
+        `[sort_by]` is the column to sort the table by. May be one of
+        either *count* or *date*. Defaults to *count*.
+
+        `[sort_order]` is the order to sort in. It may be one of either
+        *desc* for descending or *asc* for ascending. Defaults to
+        *desc*.
         """
         if num_days < 0:
             await ctx.send(
@@ -335,13 +353,27 @@ class Strikes(commands.Cog):
                 )
             )
             return
-        if num_members < 1:
+        if limit < 1:
             await ctx.send(
                 _(
                     "You must specify a number of members of at least 1 to retreive "
                     "strikes for."
                 )
             )
+        sort_by = sort_by.lower()
+        if sort_by not in ("count", "date"):
+            await ctx.send(
+                _("Sorry, I don't know how to sort by {column}").format(column=sort_by)
+            )
+            return
+        elif sort_by == "date":
+            sort_by = "most_recent_id"
+        sort_order = sort_order.upper()
+        if sort_order not in ("ASC", "DESC"):
+            await ctx.send(
+                _("Sorry, {word} is not a valid sort order.").format(word=sort_order)
+            )
+            return
         start_id = (
             discord.utils.time_snowflake(datetime.now() - timedelta(days=num_days))
             if num_days
@@ -349,22 +381,22 @@ class Strikes(commands.Cog):
         )
         with self._db_connect() as conn:
             cursor = conn.execute(
-                """
+                f"""
                 SELECT max(id) as most_recent_id, user, count(user) as count FROM strikes
                 WHERE
                   guild = ?
                   AND id > ?
                   AND is_member(user, guild)
                 GROUP BY guild, user
-                ORDER BY count DESC
+                ORDER BY {sort_by} {sort_order}
                 LIMIT ?
                 """,
-                (ctx.guild.id, start_id, num_members),
+                (ctx.guild.id, start_id, limit),
             )
             table = self._create_table(cursor, ctx.guild)
 
         if table:
-            pages = pagify(table)
+            pages = pagify(table, shorten_by=25)
             if num_days:
                 await ctx.send(
                     _(
