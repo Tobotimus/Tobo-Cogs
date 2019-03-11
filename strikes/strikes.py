@@ -37,9 +37,8 @@ try:
     from tabulate import tabulate
 except ImportError:
     raise CogLoadError(
-        "tabulate is not installed. Please install it with the following "
-        "command, then try loading this cog again:\n```\n"
-        "[p]pipinstall tabulate[widechars]\n```\n"
+        "tabulate is not installed. Please install it with the following command, then "
+        "try loading this cog again:\n```\n[p]pipinstall tabulate[widechars]\n```\n"
         "This command requires the `downloader` cog to be loaded."
     )
 
