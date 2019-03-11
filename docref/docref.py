@@ -20,8 +20,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import asyncio
+import os
 import pathlib
 import re
+import tempfile
 import urllib.parse
 from typing import Dict, Iterator, List, Optional, Tuple, cast
 
@@ -253,6 +255,9 @@ class DocRef(getattr(commands, "Cog", object)):
                 continue
 
             lines.append(f"`{name}` - [{metadata}]({url})")
+
+        if not lines:
+            await ctx.send("No sites are available.")
 
         description = "\n".join(lines)
 
@@ -530,11 +535,15 @@ class DocRef(getattr(commands, "Cog", object)):
         metadata = InvMetaData(projname, version)
         if not force_update and await self._inv_metadata_matches(url, metadata):
             raise AlreadyUpToDate()
-        if inv_path.exists():
-            inv_path.unlink()
-        async with self.session.get(inv_url) as resp:
-            with inv_path.open("wb") as stream:
-                stream.write(await resp.content.read())
+
+        fd, filename = tempfile.mkstemp()
+        with open(fd, "wb") as stream:
+            async with self.session.get(inv_url) as resp:
+                chunk = await resp.content.read(1024)
+                while chunk:
+                    stream.write(chunk)
+                    chunk = await resp.content.read(1024)
+        os.replace(filename, inv_path)
 
         await self.set_inv_metadata(url, metadata)
 
