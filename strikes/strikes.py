@@ -29,15 +29,18 @@ from typing import Iterator, List, Tuple, Union, cast
 import discord
 from redbot.core import Config, checks, commands, data_manager, modlog
 from redbot.core.bot import Red
+from redbot.core.errors import CogLoadError
 from redbot.core.i18n import Translator
 from redbot.core.utils.chat_formatting import box, pagify
 
 try:
     from tabulate import tabulate
 except ImportError:
-    raise RuntimeError(
-        "tabulate is not installed. Please install it with the `[p]pipinstall "
-        "tabulate[widechars]` command in Discord before loading strikes."
+    raise CogLoadError(
+        "tabulate is not installed. Please install it with the following "
+        "command, then try loading this cog again:\n```\n"
+        "[p]pipinstall tabulate[widechars]\n```\n"
+        "This command requires the `downloader` cog to be loaded."
     )
 
 UNIQUE_ID = 0x134087DE
