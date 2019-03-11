@@ -4,16 +4,13 @@ language: python
 cache: pip
 
 python:
-- 3.6
-- 3.6-dev
+  - 3.7.2
 
 install:
-- pip install pipenv
-- pipenv install --dev --system
+  - pip install -Ur dev-requirements.txt
 script:
-- make flake8
-- make stylecheck
+  - make flake8
+  - make stylecheck
 
 notifications:
-  on_success: never
-  on_failure: never
+  email: false
