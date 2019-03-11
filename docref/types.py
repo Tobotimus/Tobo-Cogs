@@ -21,8 +21,7 @@
 # SOFTWARE.
 
 import re
-from collections import namedtuple
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Union
 
 from redbot.core import commands
 
@@ -38,10 +37,12 @@ __all__ = (
     "RefDict",
     "RawInvData",
     "InvData",
+    "FilterFunc",
+    "MatchesDict",
 )
 
 
-class RefSpec(namedtuple("RefSpec", "url display_name")):
+class RefSpec(NamedTuple):
     """Container for data relating to a reference.
 
     This class is simply a `collections.namedtuple`, and thus it is immutable.
@@ -55,6 +56,8 @@ class RefSpec(namedtuple("RefSpec", "url display_name")):
         name.
 
     """
+    url: str
+    display_name: str
 
 
 class InvMetaData:

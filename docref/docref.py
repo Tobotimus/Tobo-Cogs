@@ -23,7 +23,7 @@ import asyncio
 import pathlib
 import re
 import urllib.parse
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple, cast
 
 import aiohttp
 import discord
@@ -96,8 +96,6 @@ class DocRef(getattr(commands, "Cog", object)):
 
         """
         # First we get the base URL and inventory data
-        url: str
-        inv_data: InvData
         try:
             url, inv_data = await self.get_inv_data(sitename, ctx.guild)
         except InvNotAvailable:
@@ -121,12 +119,14 @@ class DocRef(getattr(commands, "Cog", object)):
             valid_reftype = True
 
             ref_dict = inv_data[reftype]
-            matches, exact = self.get_matches(node_ref.refname, ref_dict)
+            tup = self.get_matches(node_ref.refname, ref_dict)
+            matches: List[RefSpec] = tup[0]
+            exact: bool = tup[1]
 
             if not matches:
                 continue
 
-            if exact:
+            if exact is True:
                 assert matches  # just double check our subroutine didn't do a poopoo
                 exact_matches[reftype] = matches
             elif exact_matches:
@@ -279,8 +279,9 @@ class DocRef(getattr(commands, "Cog", object)):
             await self.update_inv(url, force=True)
         await ctx.tick()
 
+    @staticmethod
     def get_matches(
-        self, refname: str, ref_dict: RefDict
+        refname: str, ref_dict: RefDict
     ) -> Tuple[List[RefSpec], bool]:
         """Get a list of matching references.
 
@@ -414,10 +415,7 @@ class DocRef(getattr(commands, "Cog", object)):
         url : str
             The URL for the docs website. This is the path to the webpage, and
             not to the inventory file.
-
-        Keyword Arguments
-        -----------------
-        forced : bool
+        force : bool
             Whether or not we should force the update. Defaults to ``False``.
 
         Returns
@@ -452,9 +450,6 @@ class DocRef(getattr(commands, "Cog", object)):
         ---------
         url : str
             The URL for the docs website.
-
-        Keyword Arguments
-        -----------------
         force_update : bool
             Whether or not the inventory should be force updated. Defaults to
             ``False``.
@@ -486,7 +481,8 @@ class DocRef(getattr(commands, "Cog", object)):
         inv_data = self._load_inv_file_raw(file_path, url)
         return self._format_raw_inv_data(inv_data)
 
-    def _load_inv_file_raw(self, file_path: pathlib.Path, url: str) -> RawInvData:
+    @staticmethod
+    def _load_inv_file_raw(file_path: pathlib.Path, url: str) -> RawInvData:
         with file_path.open("rb") as stream:
             inv_data = sphinx_inv.InventoryFile.load(stream, url, urllib.parse.urljoin)
         return inv_data
@@ -501,9 +497,6 @@ class DocRef(getattr(commands, "Cog", object)):
         url : str
             The URL for the docs website. This is the path to the webpage, and
             not to the inventory file.
-
-        Keyword Arguments
-        -----------------
         force_update : bool
             Whether or not the data should be forcibly updated. Defaults to
             ``False``.
@@ -525,10 +518,10 @@ class DocRef(getattr(commands, "Cog", object)):
         async with self.session.get(inv_url) as resp:
             self._check_response(resp)
             # read header comments to get version
-            header_lines = []
+            header_lines: List[bytes] = []
             idx = 0
             async for line in resp.content:
-                header_lines.append(line)
+                header_lines.append(cast(bytes, line))
                 idx += 1
                 if idx > 2:
                     break
@@ -547,7 +540,8 @@ class DocRef(getattr(commands, "Cog", object)):
 
         return inv_path
 
-    def _check_response(self, resp: aiohttp.ClientResponse) -> None:
+    @staticmethod
+    def _check_response(resp: aiohttp.ClientResponse) -> None:
         """Checks a response to an HTTP request and raises the appropriate error.
 
         Raises
