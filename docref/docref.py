@@ -25,7 +25,7 @@ import pathlib
 import re
 import tempfile
 import urllib.parse
-from typing import Dict, Iterator, List, Optional, Tuple, cast
+from typing import Dict, Iterator, List, Match, Optional, Tuple, cast
 
 import aiohttp
 import discord
@@ -742,15 +742,16 @@ class DocRef(getattr(commands, "Cog", object)):
         self.session.loop.create_task(self.session.close())
 
 
+_INVALID_CHARSET = re.compile("[^A-z0-9_]")
+
+
+def _replace_invalid_char(match: Match[str]) -> str:
+    return str(ord(match[0]))
+
+
 def safe_filename(instr: str) -> str:
     """Generates a filename-friendly string.
 
     Useful for creating filenames unique to URLs.
     """
-    invalid_charset = re.compile("[^A-z0-9_]")
-    ret = ""
-    for char in instr:
-        if invalid_charset.match(char):
-            char = str(ord(char))
-        ret += char
-    return "_" + ret  # Make sure the filename starts with something valid
+    return "_" + _INVALID_CHARSET.sub(_replace_invalid_char, instr)
