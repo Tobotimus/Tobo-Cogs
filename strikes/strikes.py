@@ -99,7 +99,7 @@ class Strikes(commands.Cog):
                 json_file.replace(json_file.parent / "settings.old.json")
 
     def _db_connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(cast(os.PathLike, self.db))
+        conn = sqlite3.connect(str(self.db))
         conn.row_factory = sqlite3.Row
         conn.create_function("is_member", 2, self._is_member)
         return conn
