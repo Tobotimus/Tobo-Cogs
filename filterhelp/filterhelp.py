@@ -3,8 +3,8 @@ from redbot.core import Config, commands
 from redbot.core.bot import Red
 from redbot.core.core_commands import Core
 
-from filterhelp.formatter import HideHelpFormatter
 from .converters import EnabledState, Hideable, Scope
+from .formatter import HideHelpFormatter
 
 UNIQUE_ID = 0x10B231A2
 
