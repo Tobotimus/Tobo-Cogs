@@ -1,26 +1,30 @@
 import enum
 from collections import UserString
+from typing import ClassVar
 
 from redbot.core import commands
 
 
-class Scope(int):
+class Scope:
 
-    GLOBAL = 0
+    GLOBAL: ClassVar[int] = 0
 
-    def __init__(self, *args, **kwargs) -> None:
-        self.name: str = kwargs.pop("name")
-        super().__init__(*args, **kwargs)
+    def __init__(self, value: int, name: str):
+        self.value = value
+        self.name = name
+
+    def __str__(self) -> str:
+        return str(self.value)
 
     @classmethod
-    async def convert(cls, ctx: commands.Context, argument: str) -> int:
+    async def convert(cls, ctx: commands.Context, argument: str) -> "Scope":
         argument = argument.lower()
         if argument in ("guild", "server"):
-            return cls(ctx.guild.id, name="server")
+            return cls(value=ctx.guild.id, name="server")
         elif argument == "global":
-            return cls(cls.GLOBAL, name="global")
+            return cls(value=cls.GLOBAL, name="global")
         elif argument == "channel":
-            return cls(ctx.channel.id, name="channel")
+            return cls(value=ctx.channel.id, name="channel")
         else:
             raise commands.BadArgument(f"`{argument}` is an invalid scope.")
 

@@ -1,4 +1,6 @@
 """Module for the FilterHelp cog."""
+from typing import Optional
+
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 
@@ -34,7 +36,7 @@ class FilterHelp(commands.Cog):
 
     @filterhelp.command(name="showhidden", usage="<yes_or_no> [scope=server]")
     async def filterhelp_showhidden(
-        self, ctx: commands.Context, enabled: EnabledState, scope: Scope = None
+        self, ctx: commands.Context, enabled: EnabledState, scope: Optional[Scope] = None
     ):
         """Show commands which are hidden by default."""
         if scope is None:
@@ -44,7 +46,7 @@ class FilterHelp(commands.Cog):
 
     @filterhelp.command(name="showforbidden", usage="<yes_or_no> [scope=server]")
     async def filterhelp_showforbidden(
-        self, ctx: commands.Context, enabled: EnabledState, scope: Scope = None
+        self, ctx: commands.Context, enabled: EnabledState, scope: Optional[Scope] = None
     ):
         """Show commands which the user cannot run."""
         if scope is None:
@@ -54,7 +56,7 @@ class FilterHelp(commands.Cog):
 
     @filterhelp.command(name="hide", usage="<name> [scope=server]")
     async def filterhelp_hide(
-        self, ctx: commands.Context, name: Hideable, scope: Scope = None
+        self, ctx: commands.Context, name: Hideable, scope: Optional[Scope] = None
     ):
         """Hide a command or cog explicitly."""
         if name is None:
@@ -71,7 +73,7 @@ class FilterHelp(commands.Cog):
 
     @filterhelp.command(name="unhide", usage="<name> [scope]")
     async def filterhelp_unhide(
-        self, ctx: commands.Context, name: Hideable, scope: Scope = None
+        self, ctx: commands.Context, name: Hideable, scope: Optional[Scope] = None
     ):
         """Unhide a command or cog."""
         if name is None:
@@ -101,7 +103,7 @@ class FilterHelp(commands.Cog):
 
     @filterhelp.command(name="show", usage="<name> [scope=server]")
     async def filterhelp_show(
-        self, ctx: commands.Context, name: Hideable, scope: Scope = None
+        self, ctx: commands.Context, name: Hideable, scope: Optional[Scope] = None
     ):
         """Show a command or cog explicitly."""
         if name is None:
@@ -118,7 +120,7 @@ class FilterHelp(commands.Cog):
 
     @filterhelp.command(name="unshow", usage="<name> [scope]")
     async def filterhelp_unshow(
-        self, ctx: commands.Context, name: Hideable, scope: Scope = None
+        self, ctx: commands.Context, name: Hideable, scope: Optional[Scope] = None
     ):
         """Unshow a command or cog."""
         if name is None:
