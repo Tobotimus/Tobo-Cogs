@@ -16,6 +16,9 @@ class FilterHelp(commands.Cog):
     def __init__(self, bot: Red) -> None:
         super().__init__()
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
+        if "init_custom" in dir(self.conf):
+            self.conf.init_custom("OPTIONS", 1)
+            self.conf.init_custom("OVERRIDES", 1)
         self.conf.register_custom(
             "OPTIONS",
             show_hidden=int(EnabledState.DEFAULT),
