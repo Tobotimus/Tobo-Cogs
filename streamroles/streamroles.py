@@ -44,37 +44,18 @@ async def only_owner_in_dm(ctx: commands.Context):
 class StreamRoles(getattr(commands, "Cog", object)):
     """Give current twitch streamers in your server a role."""
 
-    TWITCH_URL = "https://www.twitch.tv/"
-
     def __init__(self, bot: Red):
         self.bot: Red = bot
         self.conf = Config.get_conf(self, force_registration=True, identifier=UNIQUE_ID)
-        self.conf.register_global(twitch_clientid=None)
         self.conf.register_guild(
             streamer_role=None, game_whitelist=[], mode="blacklist"
         )
         self.conf.register_member(blacklisted=False, whitelisted=False)
-        self.clientid_set = False
 
     async def initialize(self) -> None:
         """Initialize the cog."""
-        clientid = await self.conf.twitch_clientid()
-        if not clientid:
-            clientid = await self.try_get_clientid()
-        if clientid:
-            self.clientid_set = True
         for guild in self.bot.guilds:
             await self._update_guild(guild)
-
-    async def try_get_clientid(self) -> Optional[str]:
-        """Tries to get the Twitch Client ID from the streams cog."""
-        streams = self.bot.get_cog("Streams")
-        if not streams or await self.conf.twitch_clientid():
-            return
-        clientid = await streams.db.clientids.get_raw("TwitchStream", default=None)
-        if clientid:
-            await self.conf.twitch_clientid.set(clientid)
-            return clientid
 
     @checks.admin_or_permissions(manage_roles=True)
     @commands.check(only_owner_in_dm)
@@ -230,23 +211,6 @@ class StreamRoles(getattr(commands, "Cog", object)):
             "they go live.".format(role.name)
         )
 
-    @checks.is_owner()
-    @streamrole.command(name="clientid")
-    async def clientid(self, ctx: commands.Context, client_id: str):
-        """Set the Client-ID for the Twitch API.
-
-        To obtain your Client-ID:
-         1. Follow this link: https://dev.twitch.tv/dashboard/apps/create
-         2. Log in (this may redirect you to the home page, if so click on the
-        above link again)
-         3. Create an application. For the redirect URI, simply use
-        http://localhost
-         4. Obtain your Client-ID!
-        """
-        await self.conf.twitch_clientid.set(client_id)
-        self.clientid_set = True
-        await ctx.send("Client ID set!")
-
     async def get_streamer_role(self, guild: discord.Guild) -> Optional[discord.Role]:
         """Get the streamrole for this guild.
 
@@ -274,9 +238,6 @@ class StreamRoles(getattr(commands, "Cog", object)):
     async def _update_member(
         self, member: discord.Member, role: Optional[discord.Role] = None
     ) -> None:
-        if not self.clientid_set:
-            return
-
         role = role or await self.get_streamer_role(member.guild)
         if role is None:
             return
@@ -302,9 +263,6 @@ class StreamRoles(getattr(commands, "Cog", object)):
             await member.remove_roles(role)
 
     async def _update_guild(self, guild: discord.Guild) -> None:
-        if not self.clientid_set:
-            return
-
         role = await self.get_streamer_role(guild)
         if role is None:
             return
@@ -326,12 +284,6 @@ class StreamRoles(getattr(commands, "Cog", object)):
     async def on_member_join(self, member: discord.Member) -> None:
         """Update a new member who joins."""
         await self._update_member(member)
-
-    async def _get_twitch_headers(self):
-        return {
-            "Client-ID": await self.conf.twitch_clientid(),
-            "Accept": "application/vnd.twitchtv.v5+json",
-        }
 
     async def _is_allowed(self, member: discord.Member):
         mode = await self.conf.guild(member.guild).mode()
