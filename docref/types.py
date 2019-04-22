@@ -56,6 +56,7 @@ class RefSpec(NamedTuple):
         name.
 
     """
+
     url: str
     display_name: str
 

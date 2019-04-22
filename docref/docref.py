@@ -285,9 +285,7 @@ class DocRef(getattr(commands, "Cog", object)):
         await ctx.tick()
 
     @staticmethod
-    def get_matches(
-        refname: str, ref_dict: RefDict
-    ) -> Tuple[List[RefSpec], bool]:
+    def get_matches(refname: str, ref_dict: RefDict) -> Tuple[List[RefSpec], bool]:
         """Get a list of matching references.
 
         First this function will look for exact matches (for which there will

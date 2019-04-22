@@ -24,7 +24,7 @@ import os
 import sqlite3
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Iterator, List, Tuple, Union, cast
+from typing import Iterator, List, Tuple, Union
 
 import discord
 from redbot.core import Config, checks, commands, data_manager, modlog
@@ -244,10 +244,7 @@ class Strikes(commands.Cog):
             table = self._create_table(cursor, member.guild)
         if table:
             pages = pagify(table, shorten_by=25)
-            await ctx.send(
-                _("Strikes for {user.display_name}:\n").format(user=member)
-                + box(next(pages))
-            )
+            await ctx.send(_("Strikes for {user.display_name}:\n").format(user=member))
             for page in pages:
                 await ctx.send(box(page))
         else:
@@ -291,22 +288,19 @@ class Strikes(commands.Cog):
                 """,
                 (ctx.guild.id, start_id),
             )
-            table = self._create_table(cursor, ctx.guild)
+            table = self._create_table(cursor, ctx.guild, show_id=False)
 
         if table:
+            print(len(table))
             pages = pagify(table, shorten_by=25)
             if num_days:
                 await ctx.send(
                     _("All strikes received by users in the past {num} days:\n").format(
                         num=num_days
                     )
-                    + box(next(pages))
                 )
             else:
-                await ctx.send(
-                    _("All strikes received by users in this server:\n")
-                    + box(next(pages))
-                )
+                await ctx.send(_("All strikes received by users in this server:\n"))
             for page in pages:
                 await ctx.send(box(page))
         else:
@@ -402,12 +396,10 @@ class Strikes(commands.Cog):
                     _(
                         "Number of strikes received by users in the past {num} days:\n"
                     ).format(num=num_days)
-                    + box(next(pages))
                 )
             else:
                 await ctx.send(
                     _("Number of strikes received by users in this server:\n")
-                    + box(next(pages))
                 )
             for page in pages:
                 await ctx.send(box(page))
@@ -423,7 +415,9 @@ class Strikes(commands.Cog):
                 await ctx.send(_("No users in this server have ever received strikes!"))
 
     @staticmethod
-    def _create_table(cursor: sqlite3.Cursor, guild: discord.Guild) -> str:
+    def _create_table(
+        cursor: sqlite3.Cursor, guild: discord.Guild, *, show_id: bool = True
+    ) -> str:
         tabular_data = defaultdict(list)
         for strike in cursor:
             with contextlib.suppress(IndexError):
@@ -437,7 +431,8 @@ class Strikes(commands.Cog):
                 tabular_data[_("Time & Date (UTC)")].append(
                     discord.utils.snowflake_time(strike_id).strftime("%Y-%m-%d %H:%M")
                 )
-                tabular_data[_("Strike ID")].append(strike_id)
+                if show_id is True:
+                    tabular_data[_("Strike ID")].append(strike_id)
             with contextlib.suppress(IndexError):
                 strike_count = strike["count"]
                 tabular_data[_("Strike Count")].append(strike_count)

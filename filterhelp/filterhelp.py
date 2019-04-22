@@ -39,7 +39,10 @@ class FilterHelp(commands.Cog):
 
     @filterhelp.command(name="showhidden", usage="<yes_or_no> [scope=server]")
     async def filterhelp_showhidden(
-        self, ctx: commands.Context, enabled: EnabledState, scope: Optional[Scope] = None
+        self,
+        ctx: commands.Context,
+        enabled: EnabledState,
+        scope: Optional[Scope] = None,
     ):
         """Show commands which are hidden by default."""
         if scope is None:
@@ -49,7 +52,10 @@ class FilterHelp(commands.Cog):
 
     @filterhelp.command(name="showforbidden", usage="<yes_or_no> [scope=server]")
     async def filterhelp_showforbidden(
-        self, ctx: commands.Context, enabled: EnabledState, scope: Optional[Scope] = None
+        self,
+        ctx: commands.Context,
+        enabled: EnabledState,
+        scope: Optional[Scope] = None,
     ):
         """Show commands which the user cannot run."""
         if scope is None:
