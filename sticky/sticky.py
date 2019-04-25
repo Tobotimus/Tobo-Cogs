@@ -116,6 +116,7 @@ class Sticky(getattr(commands, "Cog", object)):
         await ctx.send("Done.")
         self.locked_channels.remove(channel)
 
+    @commands.Cog.listener()
     async def on_raw_message_delete(
         self, payload: discord.raw_models.RawMessageDeleteEvent
     ):
