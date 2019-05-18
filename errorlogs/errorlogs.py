@@ -88,6 +88,7 @@ class ErrorLogs(getattr(commands, "Cog", object)):
             )
         )
 
+    @commands.Cog.listener()
     async def on_command_error(
         self, ctx: commands.Context, error: commands.CommandError
     ):
