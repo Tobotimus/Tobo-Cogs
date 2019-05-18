@@ -183,6 +183,7 @@ class ReactKarma(getattr(commands, "Cog", object)):
         await self.conf.user(user).karma.set(0)
         await ctx.send("{}'s karma has been reset to 0.".format(user.display_name))
 
+    @commands.Cog.listener()
     async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
         """Fires when the bot sees a reaction being added, and updates karma.
 
@@ -190,6 +191,7 @@ class ReactKarma(getattr(commands, "Cog", object)):
         """
         await self._check_reaction(reaction, user, added=True)
 
+    @commands.Cog.listener()
     async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.User):
         """Fires when the bot sees a reaction being removed, and updates karma.
 

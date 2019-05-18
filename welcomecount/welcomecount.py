@@ -138,6 +138,7 @@ class WelcomeCount(getattr(commands, "Cog", object)):
 
     # Events
 
+    @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         """Send the welcome message and update the last message."""
         guild: discord.Guild = member.guild
@@ -166,7 +167,7 @@ class WelcomeCount(getattr(commands, "Cog", object)):
             if delete_last and not new_day:
                 last_message: int = await channel_settings.last_message()
                 try:
-                    last_message: discord.Message = await channel.get_message(
+                    last_message: discord.Message = await channel.fetch_message(
                         last_message
                     )
                 except discord.HTTPException:

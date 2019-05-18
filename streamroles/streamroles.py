@@ -270,10 +270,12 @@ class StreamRoles(getattr(commands, "Cog", object)):
         for member in guild.members:
             await self._update_member(member, role)
 
+    @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild) -> None:
         """Update any members in a new guild."""
         await self._update_guild(guild)
 
+    @commands.Cog.listener()
     async def on_member_update(
         self, before: discord.Member, after: discord.Member
     ) -> None:
@@ -281,6 +283,7 @@ class StreamRoles(getattr(commands, "Cog", object)):
         if before.activity != after.activity:
             await self._update_member(after)
 
+    @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member) -> None:
         """Update a new member who joins."""
         await self._update_member(member)
