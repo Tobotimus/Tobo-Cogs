@@ -30,8 +30,7 @@ __all__ = ["UNIQUE_ID", "ErrorLogs"]
 
 UNIQUE_ID = 0xD0A3CCBF
 IGNORED_ERRORS = (
-    commands.MissingRequiredArgument,
-    commands.BadArgument,
+    commands.UserInputError,
     commands.DisabledCommand,
     commands.CommandNotFound,
     commands.CheckFailure,
