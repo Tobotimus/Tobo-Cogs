@@ -53,7 +53,7 @@ class Sticky(getattr(commands, "Cog", object)):
         if last is None or message.id == last:
             return
         try:
-            last = await channel.get_message(last)
+            last = await channel.fetch_message(last)
         except discord.HTTPException:
             pass
         else:
@@ -105,7 +105,7 @@ class Sticky(getattr(commands, "Cog", object)):
             return
         await settings.clear()
         try:
-            last = await channel.get_message(last_id)
+            last = await channel.fetch_message(last_id)
         except discord.HTTPException:
             pass
         else:
