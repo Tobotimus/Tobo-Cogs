@@ -123,16 +123,14 @@ class Sticky(commands.Cog):
         try:
             last = await channel.fetch_message(last)
         except discord.NotFound:
-            log.warning("The stickied message could not be retreived")
+            pass
         except discord.Forbidden:
             log.fatal(
                 "The bot does not have permission to retreive the stickied message"
             )
         else:
-            try:
+            with contextlib.suppress(discord.NotFound):
                 await last.delete()
-            except discord.NotFound:
-                log.warning("The stickied message could not be deleted")
 
     @commands.Cog.listener()
     async def on_raw_message_delete(

@@ -1,13 +1,12 @@
 from typing import Iterator, Tuple
 
 from redbot.core import Config, commands
-from redbot.core.help_formatter import Help
 from redbot.core.utils import async_filter
 
 from .converters import EnabledState
 
 
-class HideHelpFormatter(Help):
+class HideHelpFormatter(commands.RedHelpFormatter):
     def __init__(self, conf: Config) -> None:
         super().__init__()
         self.conf: Config = conf
