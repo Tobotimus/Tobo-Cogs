@@ -84,7 +84,7 @@ class Sticky(commands.Cog):
 
             pred = ReactionPredicate.yes_or_no(msg)
             try:
-                resp = await ctx.bot.wait_for("message", check=pred, timeout=30)
+                resp = await ctx.bot.wait_for("reaction", check=pred, timeout=30)
             except asyncio.TimeoutError:
                 resp = None
             if resp is None or pred.result is False:
