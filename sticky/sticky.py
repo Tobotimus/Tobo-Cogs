@@ -34,43 +34,18 @@ UNIQUE_ID = 0x6AFE8000
 log = logging.getLogger("red.sticky")
 
 
-class Sticky(getattr(commands, "Cog", object)):
+class Sticky(commands.Cog):
     """Sticky messages to your channels."""
 
     STICKY_DELAY = 3
 
     def __init__(self, bot):
+        super().__init__()
+
         self.bot = bot
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_channel(stickied=None, last=None)
         self.locked_channels = set()
-
-    async def on_message(self, message: discord.Message):
-        """Event which checks for sticky messages to resend."""
-        channel = message.channel
-        early_exit = (
-            isinstance(channel, discord.abc.PrivateChannel)
-            or channel in self.locked_channels
-        )
-        if early_exit:
-            return
-        settings = self.conf.channel(channel)
-        last = await settings.last()
-        if last is None or message.id == last:
-            return
-        try:
-            last = await channel.fetch_message(last)
-        except discord.NotFound:
-            log.warning("The stickied message could not be retreived")
-        except discord.Forbidden:
-            log.fatal(
-                "The bot does not have permission to retreive the stickied message"
-            )
-        else:
-            try:
-                await last.delete()
-            except discord.NotFound:
-                log.warning("The stickied message could not be deleted")
 
     @checks.mod_or_permissions(manage_messages=True)
     @commands.guild_only()
@@ -130,6 +105,34 @@ class Sticky(getattr(commands, "Cog", object)):
             await ctx.send("Done.")
         finally:
             self.locked_channels.remove(channel)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Event which checks for sticky messages to resend."""
+        channel = message.channel
+        early_exit = (
+            isinstance(channel, discord.abc.PrivateChannel)
+            or channel in self.locked_channels
+        )
+        if early_exit:
+            return
+        settings = self.conf.channel(channel)
+        last = await settings.last()
+        if last is None or message.id == last:
+            return
+        try:
+            last = await channel.fetch_message(last)
+        except discord.NotFound:
+            log.warning("The stickied message could not be retreived")
+        except discord.Forbidden:
+            log.fatal(
+                "The bot does not have permission to retreive the stickied message"
+            )
+        else:
+            try:
+                await last.delete()
+            except discord.NotFound:
+                log.warning("The stickied message could not be deleted")
 
     @commands.Cog.listener()
     async def on_raw_message_delete(
