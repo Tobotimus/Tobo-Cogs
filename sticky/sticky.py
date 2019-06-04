@@ -21,11 +21,17 @@
 # SOFTWARE.
 
 import asyncio
+import contextlib
+import logging
 
 import discord
 from redbot.core import Config, checks, commands
+from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.utils.predicates import ReactionPredicate
 
 UNIQUE_ID = 0x6AFE8000
+
+log = logging.getLogger("red.sticky")
 
 
 class Sticky(getattr(commands, "Cog", object)):
@@ -54,13 +60,17 @@ class Sticky(getattr(commands, "Cog", object)):
             return
         try:
             last = await channel.fetch_message(last)
-        except discord.HTTPException:
-            pass
+        except discord.NotFound:
+            log.warning("The stickied message could not be retreived")
+        except discord.Forbidden:
+            log.fatal(
+                "The bot does not have permission to retreive the stickied message"
+            )
         else:
             try:
                 await last.delete()
             except discord.NotFound:
-                pass
+                log.warning("The stickied message could not be deleted")
 
     @checks.mod_or_permissions(manage_messages=True)
     @commands.guild_only()
@@ -84,37 +94,42 @@ class Sticky(getattr(commands, "Cog", object)):
         channel = ctx.channel
         settings = self.conf.channel(channel)
         self.locked_channels.add(channel)
-        last_id = await settings.last()
-        if last_id is None:
-            await ctx.send("There is no stickied message in this channel.")
-            self.locked_channels.remove(channel)
-            return
-        await ctx.send(
-            "This will unsticky the current sticky message from "
-            "this channel. Are you sure you want to do this? (Y/N)"
-        )
+        try:
+            last_id = await settings.last()
+            if last_id is None:
+                await ctx.send("There is no stickied message in this channel.")
+                return
+            msg = await ctx.send(
+                "This will unsticky the current sticky message from "
+                "this channel. Are you sure you want to do this?"
+            )
+            start_adding_reactions(
+                msg, emojis=ReactionPredicate.YES_OR_NO_EMOJIS, loop=ctx.bot.loop
+            )
 
-        _conf_check = lambda m: m.author == ctx.author and m.channel == channel
-        try:
-            resp = await ctx.bot.wait_for("message", check=_conf_check, timeout=30)
-        except asyncio.TimeoutError:
-            resp = None
-        if resp is None or resp.content.lower() not in ("y", "yes"):
-            await ctx.send("Action cancelled.")
-            self.locked_channels.remove(channel)
-            return
-        await settings.clear()
-        try:
-            last = await channel.fetch_message(last_id)
-        except discord.HTTPException:
-            pass
-        else:
+            pred = ReactionPredicate.yes_or_no(msg)
             try:
-                await last.delete()
-            except discord.NotFound:
+                resp = await ctx.bot.wait_for("message", check=pred, timeout=30)
+            except asyncio.TimeoutError:
+                resp = None
+            if resp is None or pred.result is False:
+                await ctx.send("Action cancelled.")
+                with contextlib.suppress(discord.Forbidden):
+                    await msg.clear_reactions()
+                return
+            await settings.clear()
+            try:
+                last = await channel.fetch_message(last_id)
+            except discord.HTTPException:
                 pass
-        await ctx.send("Done.")
-        self.locked_channels.remove(channel)
+            else:
+                try:
+                    await last.delete()
+                except discord.NotFound:
+                    pass
+            await ctx.send("Done.")
+        finally:
+            self.locked_channels.remove(channel)
 
     @commands.Cog.listener()
     async def on_raw_message_delete(
@@ -129,6 +144,7 @@ class Sticky(getattr(commands, "Cog", object)):
         new = await self.send_stickied(channel, content)
         await settings.last.set(new.id)
 
-    async def send_stickied(self, channel: discord.TextChannel, content: str):
+    @staticmethod
+    async def send_stickied(channel: discord.TextChannel, content: str):
         """Send the content as a stickied message."""
         return await channel.send("__***Stickied Message:***__\n\n" + content)
