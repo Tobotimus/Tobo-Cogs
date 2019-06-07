@@ -349,7 +349,7 @@ class StreamRoles(getattr(commands, "Cog", object)):
         if await self.conf.member(member).whitelisted():
             return True
         for role in member.roles:
-            if await self.conf.member(role).whitelisted():
+            if await self.conf.role(role).whitelisted():
                 return True
         return False
 
@@ -357,6 +357,6 @@ class StreamRoles(getattr(commands, "Cog", object)):
         if await self.conf.member(member).blacklisted():
             return True
         for role in member.roles:
-            if await self.conf.member(role).blacklisted():
+            if await self.conf.role(role).blacklisted():
                 return True
         return False
