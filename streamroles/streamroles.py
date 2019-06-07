@@ -27,22 +27,20 @@ from typing import List, Optional, Tuple, Union
 import discord
 from redbot.core import Config, checks, commands
 from redbot.core.bot import Red
-from redbot.core.utils.chat_formatting import box
+from redbot.core.utils import menus, predicates
 
 log = logging.getLogger("red.streamroles")
 
 UNIQUE_ID = 0x923476AF
 
 
-async def only_owner_in_dm(ctx: commands.Context):
-    """A command check predicate for restricting DM use to the bot owner."""
-    if isinstance(ctx.channel, discord.abc.PrivateChannel):
-        return await ctx.bot.is_owner(ctx.author)
-    return True
-
-
 class StreamRoles(getattr(commands, "Cog", object)):
     """Give current twitch streamers in your server a role."""
+
+    # Set using [p]eval or something rather and the streamrole will be assigned simply
+    # whenever someone is streaming, regardless of whether or not they have a linked
+    # Twitch account. Makes for easier black-box testing.
+    DEBUG_MODE = False
 
     def __init__(self, bot: Red):
         self.bot: Red = bot
@@ -59,13 +57,12 @@ class StreamRoles(getattr(commands, "Cog", object)):
             await self._update_guild(guild)
 
     @checks.admin_or_permissions(manage_roles=True)
-    @commands.check(only_owner_in_dm)
+    @commands.guild_only()
     @commands.group(autohelp=True, aliases=["streamroles"])
     async def streamrole(self, ctx: commands.Context):
         """Manage settings for StreamRoles."""
         pass
 
-    @commands.guild_only()
     @streamrole.command()
     async def setmode(self, ctx: commands.Context, *, mode: str):
         """Set the user filter mode to blacklist or whitelist."""
@@ -74,9 +71,9 @@ class StreamRoles(getattr(commands, "Cog", object)):
             await ctx.send("Mode must be `blacklist` or `whitelist`.")
             return
         await self.conf.guild(ctx.guild).mode.set(mode)
+        await self._update_guild(ctx.guild)
         await ctx.tick()
 
-    @commands.guild_only()
     @streamrole.group(autohelp=True)
     async def whitelist(self, ctx: commands.Context):
         """Manage the whitelist."""
@@ -87,13 +84,15 @@ class StreamRoles(getattr(commands, "Cog", object)):
         self,
         ctx: commands.Context,
         *,
-        user_or_role: Union[discord.Member, discord.Role]
+        user_or_role: Union[discord.Member, discord.Role],
     ):
         """Add a member or role to the whitelist."""
         if isinstance(user_or_role, discord.Member):
             await self.conf.member(user_or_role).whitelisted.set(True)
+            await self._update_member(user_or_role)
         else:
             await self.conf.role(user_or_role).whitelisted.set(True)
+            await self._update_members_with_role(user_or_role)
         await ctx.tick()
 
     @whitelist.command(name="remove")
@@ -101,13 +100,15 @@ class StreamRoles(getattr(commands, "Cog", object)):
         self,
         ctx: commands.Context,
         *,
-        user_or_role: Union[discord.Member, discord.Role]
+        user_or_role: Union[discord.Member, discord.Role],
     ):
         """Remove a member or role from the whitelist."""
         if isinstance(user_or_role, discord.Member):
             await self.conf.member(user_or_role).whitelisted.set(False)
+            await self._update_member(user_or_role)
         else:
             await self.conf.role(user_or_role).whitelisted.set(False)
+            await self._update_members_with_role(user_or_role)
         await ctx.tick()
 
     @checks.bot_has_permissions(embed_links=True)
@@ -118,14 +119,15 @@ class StreamRoles(getattr(commands, "Cog", object)):
         if not (members or roles):
             await ctx.send("The whitelist is empty.")
             return
-        embed = discord.Embed(title="StreamRoles Whitelist")
+        embed = discord.Embed(
+            title="StreamRoles Whitelist", colour=await ctx.embed_colour()
+        )
         if members:
             embed.add_field(name="Members", value="\n".join(map(str, members)))
         if roles:
             embed.add_field(name="Roles", value="\n".join(map(str, roles)))
         await ctx.send(embed=embed)
 
-    @commands.guild_only()
     @streamrole.group(autohelp=True)
     async def blacklist(self, ctx: commands.Context):
         """Manage the blacklist."""
@@ -136,13 +138,15 @@ class StreamRoles(getattr(commands, "Cog", object)):
         self,
         ctx: commands.Context,
         *,
-        user_or_role: Union[discord.Member, discord.Role]
+        user_or_role: Union[discord.Member, discord.Role],
     ):
         """Add a member or role to the blacklist."""
         if isinstance(user_or_role, discord.Member):
             await self.conf.member(user_or_role).blacklisted.set(True)
+            await self._update_member(user_or_role)
         else:
             await self.conf.role(user_or_role).blacklisted.set(True)
+            await self._update_members_with_role(user_or_role)
         await ctx.tick()
 
     @blacklist.command(name="remove")
@@ -150,13 +154,15 @@ class StreamRoles(getattr(commands, "Cog", object)):
         self,
         ctx: commands.Context,
         *,
-        user_or_role: Union[discord.Member, discord.Role]
+        user_or_role: Union[discord.Member, discord.Role],
     ):
         """Remove a member or role from the blacklist."""
         if isinstance(user_or_role, discord.Member):
             await self.conf.member(user_or_role).blacklisted.set(False)
+            await self._update_member(user_or_role)
         else:
             await self.conf.role(user_or_role).blacklisted.set(False)
+            await self._update_members_with_role(user_or_role)
         await ctx.tick()
 
     @checks.bot_has_permissions(embed_links=True)
@@ -176,7 +182,6 @@ class StreamRoles(getattr(commands, "Cog", object)):
             embed.add_field(name="Roles", value="\n".join(map(str, roles)))
         await ctx.send(embed=embed)
 
-    @commands.guild_only()
     @streamrole.group(autohelp=True)
     async def games(self, ctx: commands.Context):
         """Manage the game whitelist.
@@ -194,48 +199,55 @@ class StreamRoles(getattr(commands, "Cog", object)):
         This should *exactly* match the name of the game being played
         by the streamer as shown in Discord or on Twitch.
         """
-        whitelist = await self.conf.guild(ctx.guild).game_whitelist()
-        whitelist.append(game)
-        await self.conf.guild(ctx.guild).game_whitelist.set(whitelist)
+        async with self.conf.guild(ctx.guild).game_whitelist() as whitelist:
+            whitelist.append(game)
+        await self._update_guild(ctx.guild)
         await ctx.tick()
 
     @games.command(name="remove")
     async def games_remove(self, ctx: commands.Context, *, game: str):
         """Remove a game from the game whitelist."""
-        whitelist = await self.conf.guild(ctx.guild).game_whitelist()
-        try:
-            whitelist.remove(game)
-        except ValueError:
-            await ctx.send("That game is not in the whitelist.")
-        else:
-            await self.conf.guild(ctx.guild).game_whitelist.set(whitelist)
-            await ctx.tick()
+        async with self.conf.guild(ctx.guild).game_whitelist() as whitelist:
+            try:
+                whitelist.remove(game)
+            except ValueError:
+                await ctx.send("That game is not in the whitelist.")
+                return
+        await self._update_guild(ctx.guild)
+        await ctx.tick()
 
+    @checks.bot_has_permissions(embed_links=True)
     @games.command(name="show")
     async def games_show(self, ctx: commands.Context):
         """Show the game whitelist for this server."""
         whitelist = await self.conf.guild(ctx.guild).game_whitelist()
         if not whitelist:
-            await ctx.send("The whitelist is empty - all games are allowed.")
+            await ctx.send("The game whitelist is empty.")
             return
-        await ctx.send(box(", ".join(whitelist)))
+        embed = discord.Embed(
+            title="StreamRoles Game Whitelist",
+            description="\n".join(whitelist),
+            colour=await ctx.embed_colour(),
+        )
+        await ctx.send(embed=embed)
 
     @games.command(name="clear")
     async def games_clear(self, ctx: commands.Context):
         """Clear the game whitelist for this server."""
-        await ctx.send(
+        msg = await ctx.send(
             "This will clear the game whitelist for this server. "
-            "Are you sure you want to do this? (Y/N)"
+            "Are you sure you want to do this?"
         )
+        menus.start_adding_reactions(msg, predicates.ReactionPredicate.YES_OR_NO_EMOJIS)
+
+        pred = predicates.ReactionPredicate.yes_or_no(msg)
         try:
-            message = await ctx.bot.wait_for(
-                "message",
-                check=lambda m: m.author == ctx.author and m.channel == ctx.channel,
-            )
+            message = await ctx.bot.wait_for("reaction_add", check=pred)
         except asyncio.TimeoutError:
             message = None
-        if message is not None and message.content.lower() in ("y", "yes"):
-            await self.conf.guild(ctx.guild).game_whitelist.set([])
+        if message is not None and pred.result is True:
+            await self.conf.guild(ctx.guild).game_whitelist.clear()
+            await self._update_guild(ctx.guild)
             await ctx.send("Done. The game whitelist has been cleared.")
         else:
             await ctx.send("The action was cancelled.")
@@ -252,7 +264,6 @@ class StreamRoles(getattr(commands, "Cog", object)):
         roles = list(filter(None, map(guild.get_role, role_ids)))
         return members, roles
 
-    @commands.guild_only()
     @streamrole.command()
     async def setrole(self, ctx: commands.Context, *, role: discord.Role):
         """Set the role which is given to streamers."""
@@ -295,7 +306,10 @@ class StreamRoles(getattr(commands, "Cog", object)):
 
         activity = member.activity
         if activity is not None and activity.type == discord.ActivityType.streaming:
-            stream = activity.twitch_name
+            if self.DEBUG_MODE is True:
+                stream = True
+            else:
+                stream = activity.twitch_name
         else:
             stream = None
 
@@ -313,13 +327,36 @@ class StreamRoles(getattr(commands, "Cog", object)):
             log.debug("Removing streamrole %s from member %s", role.id, member.id)
             await member.remove_roles(role)
 
+    async def _update_members_with_role(self, role: discord.Role) -> None:
+        streamer_role = await self.get_streamer_role(role.guild)
+        if streamer_role is None:
+            return
+
+        if await self.conf.guild(role.guild).mode() == "blacklist":
+            for member in role.members:
+                if streamer_role in member.roles:
+                    log.debug(
+                        "Removing streamrole %s from member %s after role %s was "
+                        "blacklisted",
+                        streamer_role.id,
+                        member.id,
+                        role.id,
+                    )
+                    await member.remove_roles(
+                        streamer_role,
+                        reason=f"Removing streamrole after {role} role was blacklisted",
+                    )
+        else:
+            for member in role.members:
+                await self._update_member(member, streamer_role)
+
     async def _update_guild(self, guild: discord.Guild) -> None:
-        role = await self.get_streamer_role(guild)
-        if role is None:
+        streamer_role = await self.get_streamer_role(guild)
+        if streamer_role is None:
             return
 
         for member in guild.members:
-            await self._update_member(member, role)
+            await self._update_member(member, streamer_role)
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild) -> None:
