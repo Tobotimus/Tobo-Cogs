@@ -4,7 +4,7 @@
   "install_msg": "Thanks for installing `filterhelp`. See `[p]help filterhelp` for details.",
   "short": "Control what commands are shown on the help menu.",
   "hidden": false,
-  "disabled": false,
+  "disabled": true,
   "required_cogs": [],
   "requirements": [],
   "tags": ["help", "hidehelp"],
