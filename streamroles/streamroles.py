@@ -53,8 +53,12 @@ class StreamRoles(getattr(commands, "Cog", object)):
 
     async def initialize(self) -> None:
         """Initialize the cog."""
-        for guild in self.bot.guilds:
-            await self._update_guild(guild)
+        try:
+            for guild in self.bot.guilds:
+                await self._update_guild(guild)
+        except Exception as exc:
+            log.exception("Error whilst initializing streamroles:", exc_info=exc)
+            raise
 
     @checks.admin_or_permissions(manage_roles=True)
     @commands.guild_only()
