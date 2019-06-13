@@ -20,10 +20,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import logging
+
 from .streamroles import StreamRoles
+
+log = logging.getLogger("red.streamroles")
 
 
 async def setup(bot):
-    cog = StreamRoles(bot)
-    await cog.initialize()
-    bot.add_cog(cog)
+    try:
+        cog = StreamRoles(bot)
+        await cog.initialize()
+        bot.add_cog(cog)
+    except Exception as exc:
+        log.exception("Error whilst loading streamroles:", exc_info=exc)
+        raise
