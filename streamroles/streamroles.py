@@ -305,7 +305,7 @@ class StreamRoles(getattr(commands, "Cog", object)):
             return
 
         activity = member.activity
-        if activity is not None and activity.type == discord.ActivityType.streaming:
+        if activity is not None and isinstance(activity, discord.Streaming):
             if self.DEBUG_MODE is True:
                 stream = True
             else:
