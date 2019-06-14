@@ -19,12 +19,17 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+import asyncio
+import contextlib
+import re
 import traceback
+from typing import List
 
 import discord
-from redbot.core import Config, checks, commands
+from redbot.core import Config, checks, commands, data_manager
 from redbot.core.utils.chat_formatting import box, pagify
+
+from .reaction_menu import LogScrollingMenu
 
 __all__ = ["UNIQUE_ID", "ErrorLogs"]
 
@@ -37,14 +42,18 @@ IGNORED_ERRORS = (
     commands.NoPrivateMessage,
     commands.CommandOnCooldown,
 )
+LATEST_LOG_RE = re.compile(r"latest(?:-part(?P<part>\d+))?\.log")
 
 
-class ErrorLogs(getattr(commands, "Cog", object)):
+class ErrorLogs(commands.Cog):
     """Log tracebacks of command errors in discord channels."""
 
     def __init__(self):
         self.conf = Config.get_conf(self, identifier=UNIQUE_ID, force_registration=True)
         self.conf.register_channel(enabled=False, global_errors=False)
+
+        self._tasks: List[asyncio.Task] = []
+        super().__init__()
 
     @checks.is_owner()
     @commands.group(autohelp=False)
@@ -86,6 +95,36 @@ class ErrorLogs(getattr(commands, "Cog", object)):
                 "all errors" if true_or_false else "only errors in this server"
             )
         )
+
+    @errorlogs.command(name="scroll", aliases=["history"])
+    async def _errorlogs_scroll(
+        self, ctx: commands.Context, page_size: int = 25, num_pages: int = 15
+    ):
+        """Scroll through the console's history.
+
+        __**Arguments**__
+        `page_size`: (integer) The initial number of lines in each
+        page.
+        `num_pages`: (integer) The number of pages to read into the
+        buffer.
+        """
+        latest_logs = []
+        for path in (data_manager.core_data_path() / "logs").iterdir():
+            match = LATEST_LOG_RE.match(path.name)
+            if match:
+                latest_logs.append(path)
+
+        if not latest_logs:
+            await ctx.send("Nothing seems to have been logged yet!")
+            return
+
+        latest_logs.sort(reverse=True)
+
+        task = asyncio.create_task(
+            LogScrollingMenu.send(ctx, latest_logs, page_size, num_pages)
+        )
+        task.add_done_callback(self._remove_task)
+        self._tasks.append(task)
 
     @commands.Cog.listener()
     async def on_command_error(
@@ -148,6 +187,15 @@ class ErrorLogs(getattr(commands, "Cog", object)):
                 await channel.send(forbidden_msg)
             for page in pagify(log):
                 await channel.send(box(page, lang="py"))
+
+    def cog_unload(self):
+        for task in self._tasks:
+            task.cancel()
+        self._tasks.clear()
+
+    def _remove_task(self, task: asyncio.Task) -> None:
+        with contextlib.suppress(ValueError):
+            self._tasks.remove(task)
 
 
 def _get_channels_and_settings(ctx: commands.Context, all_dict: dict):
