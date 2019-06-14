@@ -50,7 +50,7 @@ class LogScrollingMenu:
         page_size: int = 25,
         num_pages: int = 15,
     ):
-        lines = deque(maxlen=num_pages * page_size)
+        lines = deque(maxlen=num_pages * page_size + 2)
         for logfile_path in logfiles:
             new_lines = deque(maxlen=lines.maxlen - len(lines))
             with logfile_path.open() as fs:
@@ -61,6 +61,10 @@ class LogScrollingMenu:
             del new_lines
             if len(lines) >= lines.maxlen:
                 break
+        lines.popleft()
+        lines.popleft()
+        lines.appendleft("# START OF LOG BUFFER\n")
+        lines.append("# END OF LOG\n")
 
         self = cls(ctx, list(lines), page_size)
 
@@ -112,7 +116,7 @@ class LogScrollingMenu:
         if self._start_pos <= 0:
             return
         self._end_pos = self._start_pos
-        self._start_pos = self._end_pos - self._page_size
+        self._start_pos = max(self._end_pos - self._page_size, 0)
         await self._update_message(pin="end")
 
     @button("\N{BLACK DOWN-POINTING DOUBLE TRIANGLE}")
@@ -155,6 +159,7 @@ class LogScrollingMenu:
         joined_lines = "".join(
             self._lines[self._start_pos : self._end_pos]
         )
+
         if len(joined_lines) > MAX_CONTENT_SIZE:
             if pin == "start":
                 cutoff = joined_lines.find("\n", 0, MAX_CONTENT_SIZE)
@@ -181,7 +186,7 @@ class LogScrollingMenu:
         elif pin == "end":
             self._start_pos = self._end_pos - rendered_page_size
             if self._start_pos <= 0 and pin == "end":
-                while rendered_page_size <= self._page_size:
+                while rendered_page_size < self._page_size:
                     try:
                         new_line = self._lines[self._end_pos]
                     except IndexError:
@@ -189,7 +194,7 @@ class LogScrollingMenu:
                     else:
                         if len(joined_lines) + len(new_line) > MAX_CONTENT_SIZE:
                             break
-                        joined_lines = joined_lines + new_line
+                        joined_lines += new_line
                         self._end_pos += 1
                         rendered_page_size += 1
 
