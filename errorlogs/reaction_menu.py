@@ -10,6 +10,8 @@ import discord
 from redbot.core import commands
 from redbot.core.utils import chat_formatting as chatutils, menus as menutils
 
+MAX_CONTENT_SIZE = 2000 - len("```ini```\n\n")
+
 
 def button(emoji: str):
     def decorator(func):
@@ -30,13 +32,14 @@ class LogScrollingMenu:
         Callable[["LogScrollingMenu", discord.RawReactionActionEvent], Awaitable[None]],
     ] = {}
 
-    def __init__(self, ctx: commands.Context, lines: List[str], num_lines: int) -> None:
+    def __init__(self, ctx: commands.Context, lines: List[str], page_size: int) -> None:
         self.ctx = ctx
         self.message = None
 
         self._lines = lines
-        self._page_size = num_lines
+        self._page_size = page_size
         self._end_pos = len(self._lines)
+        self._start_pos = self._end_pos - page_size
         self._done_event = asyncio.Event()
 
     @classmethod
@@ -90,33 +93,52 @@ class LogScrollingMenu:
 
     @button("\N{UPWARDS BLACK ARROW}")
     async def scroll_up(self, payload: discord.RawReactionActionEvent) -> None:
-        self._end_pos = max(self._end_pos - 1, self._page_size)
-        await self._update_message()
+        if self._start_pos <= 0:
+            return
+        self._start_pos -= 1
+        self._end_pos = self._start_pos + self._page_size
+        await self._update_message(pin="start")
 
     @button("\N{DOWNWARDS BLACK ARROW}")
     async def scroll_down(self, payload: discord.RawReactionActionEvent) -> None:
-        self._end_pos = min(self._end_pos + 1, len(self._lines))
-        await self._update_message()
+        if self._end_pos >= len(self._lines):
+            return
+        self._end_pos += 1
+        self._start_pos = self._end_pos - self._page_size
+        await self._update_message(pin="end")
 
     @button("\N{BLACK UP-POINTING DOUBLE TRIANGLE}")
     async def page_up(self, payload: discord.RawReactionActionEvent) -> None:
-        self._end_pos = max(self._end_pos - self._page_size, self._page_size)
-        await self._update_message()
+        if self._start_pos <= 0:
+            return
+        self._end_pos = self._start_pos
+        self._start_pos = self._end_pos - self._page_size
+        await self._update_message(pin="end")
 
     @button("\N{BLACK DOWN-POINTING DOUBLE TRIANGLE}")
     async def page_down(self, payload: discord.RawReactionActionEvent) -> None:
-        self._end_pos = min(self._end_pos + self._page_size, len(self._lines))
-        await self._update_message()
+        if self._end_pos >= len(self._lines):
+            return
+        self._start_pos = self._end_pos
+        self._end_pos = self._start_pos + self._page_size
+        await self._update_message(pin="start")
 
     @button("\N{UP DOWN ARROW}")
     async def expand(self, payload: discord.RawReactionActionEvent) -> None:
         self._page_size += 2
-        await self.scroll_down(payload)
+        if self._start_pos <= 0 and self._end_pos >= len(self._lines):
+            return
+        self._start_pos = max(self._start_pos - 1, 0)
+        self._end_pos = min(self._end_pos + 1, len(self._lines))
+        await self._update_message()
 
     @button("\N{END WITH LEFTWARDS ARROW ABOVE}")
     async def go_to_end(self, payload: discord.RawReactionActionEvent) -> None:
+        if self._end_pos >= len(self._lines):
+            return
         self._end_pos = len(self._lines)
-        await self._update_message()
+        self._start_pos = self._end_pos - self._page_size
+        await self._update_message(pin="end")
 
     @button("\N{CROSS MARK}")
     async def exit_menu(self, payload: discord.RawReactionActionEvent) -> None:
@@ -129,13 +151,48 @@ class LogScrollingMenu:
             and payload.user_id == self.ctx.author.id
         )
 
-    async def _update_message(self) -> None:
+    async def _update_message(self, *, pin: str = "end") -> None:
         joined_lines = "".join(
-            self._lines[self._end_pos - self._page_size : self._end_pos]
+            self._lines[self._start_pos : self._end_pos]
         )
-        if len(joined_lines) + len("```ini```\n\n") > 2000:
-            cutoff = joined_lines.find("\n", -2000 + len("```ini```\n\n"))
-            joined_lines = joined_lines[cutoff:]
+        if len(joined_lines) > MAX_CONTENT_SIZE:
+            if pin == "start":
+                cutoff = joined_lines.find("\n", 0, MAX_CONTENT_SIZE)
+                joined_lines = joined_lines[:cutoff]
+            else:
+                cutoff = joined_lines.find("\n", -MAX_CONTENT_SIZE)
+                joined_lines = joined_lines[cutoff + 1:]
+
+        rendered_page_size = joined_lines.count("\n")
+        if pin == "start":
+            self._end_pos = self._start_pos + rendered_page_size
+            if self._end_pos >= len(self._lines) and pin == "start":
+                while rendered_page_size < self._page_size:
+                    try:
+                        new_line = self._lines[self._start_pos - 1]
+                    except IndexError:
+                        break
+                    else:
+                        if len(joined_lines) + len(new_line) > MAX_CONTENT_SIZE:
+                            break
+                        joined_lines = new_line + joined_lines
+                        self._start_pos -= 1
+                        rendered_page_size += 1
+        elif pin == "end":
+            self._start_pos = self._end_pos - rendered_page_size
+            if self._start_pos <= 0 and pin == "end":
+                while rendered_page_size <= self._page_size:
+                    try:
+                        new_line = self._lines[self._end_pos]
+                    except IndexError:
+                        break
+                    else:
+                        if len(joined_lines) + len(new_line) > MAX_CONTENT_SIZE:
+                            break
+                        joined_lines = joined_lines + new_line
+                        self._end_pos += 1
+                        rendered_page_size += 1
+
         content = chatutils.box(joined_lines, lang="ini")
         if self.message is None:
             self.message = await self.ctx.send(content)
