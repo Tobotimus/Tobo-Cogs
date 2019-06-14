@@ -162,7 +162,7 @@ class LogScrollingMenu:
 
         if len(joined_lines) > MAX_CONTENT_SIZE:
             if pin == "start":
-                cutoff = joined_lines.find("\n", 0, MAX_CONTENT_SIZE)
+                cutoff = joined_lines.rfind("\n", 0, MAX_CONTENT_SIZE)
                 joined_lines = joined_lines[:cutoff]
             else:
                 cutoff = joined_lines.find("\n", -MAX_CONTENT_SIZE)
