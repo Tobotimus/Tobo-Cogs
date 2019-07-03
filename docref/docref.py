@@ -57,13 +57,14 @@ from .types import (
 UNIQUE_ID = 0x178AC710
 
 
-class DocRef(getattr(commands, "Cog", object)):
+class DocRef(commands.Cog):
     """Search for references on documentation webpages.
 
     I need to be able to embed links for this cog to be useful!
     """
 
     def __init__(self, loop: asyncio.AbstractEventLoop):
+        super().__init__()
         self.conf: Config = Config.get_conf(
             self, identifier=UNIQUE_ID, force_registration=True
         )
@@ -102,6 +103,11 @@ class DocRef(getattr(commands, "Cog", object)):
             url, inv_data = await self.get_inv_data(sitename, ctx.guild)
         except InvNotAvailable:
             await ctx.send(f'Couldn\'t find the site name "{sitename}".')
+            return
+        except NotFound:
+            await ctx.send(
+                f'It appears as though the "{sitename}" site\'s URL is now a 404.'
+            )
             return
 
         # Now we need to filter the data according to our node_ref
@@ -280,9 +286,15 @@ class DocRef(getattr(commands, "Cog", object)):
         if url is None:
             await ctx.send(f'Couldn\'t find the site name "{sitename}".')
             return
-        async with ctx.typing():
-            await self.update_inv(url, force=True)
-        await ctx.tick()
+        try:
+            async with ctx.typing():
+                await self.update_inv(url, force=True)
+        except NotFound:
+            await ctx.send(
+                f'It appears as though the "{sitename}" site\'s URL is now a 404.'
+            )
+        else:
+            await ctx.tick()
 
     @staticmethod
     def get_matches(refname: str, ref_dict: RefDict) -> Tuple[List[RefSpec], bool]:
@@ -597,7 +609,7 @@ class DocRef(getattr(commands, "Cog", object)):
         try:
             raw_metadata: RawInvMetaData = await self.conf.inv_metadata.get_raw(url)
         except KeyError:
-            raise InvNotAvailable()
+            raise InvNotAvailable
         else:
             return InvMetaData(**raw_metadata)
 
@@ -736,8 +748,8 @@ class DocRef(getattr(commands, "Cog", object)):
         if inv_file.exists():
             inv_file.unlink()
 
-    def __unload(self) -> None:
-        self.session.loop.create_task(self.session.close())
+    def cog_unload(self) -> None:
+        asyncio.create_task(self.session.close())
 
 
 _INVALID_CHARSET = re.compile("[^A-z0-9_]")
