@@ -21,20 +21,21 @@
 # SOFTWARE.
 
 import asyncio
+import contextlib
 import logging
 from typing import List, Optional, Tuple, Union
 
 import discord
 from redbot.core import Config, checks, commands
 from redbot.core.bot import Red
-from redbot.core.utils import menus, predicates
+from redbot.core.utils import chat_formatting as chatutils, menus, predicates
 
 log = logging.getLogger("red.streamroles")
 
 UNIQUE_ID = 0x923476AF
 
 
-class StreamRoles(getattr(commands, "Cog", object)):
+class StreamRoles(commands.Cog):
     """Give current twitch streamers in your server a role."""
 
     # Set using [p]eval or something rather and the streamrole will be assigned simply
@@ -43,12 +44,19 @@ class StreamRoles(getattr(commands, "Cog", object)):
     DEBUG_MODE = False
 
     def __init__(self, bot: Red):
+        super().__init__()
         self.bot: Red = bot
         self.conf = Config.get_conf(self, force_registration=True, identifier=UNIQUE_ID)
         self.conf.register_guild(
-            streamer_role=None, game_whitelist=[], mode="blacklist"
+            streamer_role=None,
+            game_whitelist=[],
+            mode="blacklist",
+            alerts__enabled=False,
+            alerts__channel=None,
         )
-        self.conf.register_member(blacklisted=False, whitelisted=False)
+        self.conf.register_member(
+            blacklisted=False, whitelisted=False, alert_messages={}
+        )
         self.conf.register_role(blacklisted=False, whitelisted=False)
 
     async def initialize(self) -> None:
@@ -252,6 +260,24 @@ class StreamRoles(getattr(commands, "Cog", object)):
         else:
             await ctx.send("The action was cancelled.")
 
+    @streamrole.group()
+    async def alerts(self, ctx: commands.Context):
+        """Manage streamalerts for those who receive the streamrole."""
+
+    @alerts.command(name="setenabled")
+    async def alerts_setenabled(self, ctx: commands.Context, true_or_false: bool):
+        """Enable or disable streamrole alerts."""
+        await self.conf.guild(ctx.guild).alerts.enabled.set(true_or_false)
+        await ctx.tick()
+
+    @alerts.command(name="setchannel")
+    async def alerts_setchannel(
+        self, ctx: commands.Context, channel: discord.TextChannel
+    ):
+        """Set the channel for streamrole alerts."""
+        await self.conf.guild(ctx.guild).alerts.channel.set(channel.id)
+        await ctx.tick()
+
     async def _get_filter_list(
         self, guild: discord.Guild, mode: str
     ) -> Tuple[List[discord.Member], List[discord.Role]]:
@@ -297,12 +323,42 @@ class StreamRoles(getattr(commands, "Cog", object)):
         else:
             return role
 
+    async def get_alerts_channel(
+        self, guild: discord.Guild
+    ) -> Optional[discord.TextChannel]:
+        """Get the alerts channel for this guild.
+
+        Arguments
+        ---------
+        guild : discord.Guild
+            The guild to retrieve the alerts channel for.
+
+        Returns
+        -------
+        Optional[discord.TextChannel]
+            The channel where alerts are posted in this guild. ``None``
+            if not set or enabled.
+        """
+        alerts_data = await self.conf.guild(guild).alerts.all()
+        if not alerts_data["enabled"]:
+            return
+        return guild.get_channel(alerts_data["channel"])
+
     async def _update_member(
-        self, member: discord.Member, role: Optional[discord.Role] = None
+        self,
+        member: discord.Member,
+        role: Optional[discord.Role] = None,
+        alerts_channel: Optional[discord.Role] = ...,
     ) -> None:
         role = role or await self.get_streamer_role(member.guild)
         if role is None:
             return
+
+        channel = (
+            alerts_channel
+            if alerts_channel is not ...
+            else await self.get_alerts_channel(member.guild)
+        )
 
         activity = member.activity
         if activity is not None and isinstance(activity, discord.Streaming):
@@ -321,16 +377,22 @@ class StreamRoles(getattr(commands, "Cog", object)):
                 if not has_role:
                     log.debug("Adding streamrole %s to member %s", role.id, member.id)
                     await member.add_roles(role)
+                    if channel:
+                        await self._post_alert(member, channel)
                 return
 
         if has_role:
             log.debug("Removing streamrole %s from member %s", role.id, member.id)
             await member.remove_roles(role)
+            if channel:
+                await self._remove_alert(member, channel)
 
     async def _update_members_with_role(self, role: discord.Role) -> None:
         streamer_role = await self.get_streamer_role(role.guild)
         if streamer_role is None:
             return
+
+        alerts_channel = await self.get_alerts_channel(role.guild)
 
         if await self.conf.guild(role.guild).mode() == "blacklist":
             for member in role.members:
@@ -348,15 +410,53 @@ class StreamRoles(getattr(commands, "Cog", object)):
                     )
         else:
             for member in role.members:
-                await self._update_member(member, streamer_role)
+                await self._update_member(member, streamer_role, alerts_channel)
 
     async def _update_guild(self, guild: discord.Guild) -> None:
         streamer_role = await self.get_streamer_role(guild)
         if streamer_role is None:
             return
 
+        alerts_channel = await self.get_alerts_channel(guild)
+
         for member in guild.members:
-            await self._update_member(member, streamer_role)
+            await self._update_member(member, streamer_role, alerts_channel)
+
+    async def _post_alert(
+        self, member: discord.Member, channel: discord.TextChannel
+    ) -> discord.Message:
+        activity = member.activity
+        content = (
+            f"{chatutils.bold(member.display_name)} is now live on Twitch, playing "
+            f"{chatutils.italics(str(activity.details))}:\n\n"
+            f"{chatutils.italics(activity.name)}\n\n{activity.url}"
+        )
+        msg = await channel.send(content)
+        await self.conf.member(member).alert_messages.set_raw(
+            str(channel.id), value=msg.id
+        )
+        return msg
+
+    async def _remove_alert(
+        self, member: discord.Member, channel: discord.TextChannel
+    ) -> None:
+        conf_group = self.conf.member(member).alert_messages
+        msg_id = await conf_group.get_raw(str(channel.id), default=None)
+        if msg_id is None:
+            return
+        await conf_group.clear_raw(str(channel.id))
+
+        msg: Optional[discord.Message] = discord.utils.get(
+            getattr(self.bot, "cached_messages", ()), id=msg_id
+        )
+        if msg is None:
+            try:
+                msg = await channel.fetch_message(msg_id)
+            except discord.NotFound:
+                return
+
+        with contextlib.suppress(discord.NotFound):
+            await msg.delete()
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild) -> None:
