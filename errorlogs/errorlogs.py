@@ -21,11 +21,11 @@
 # SOFTWARE.
 import asyncio
 import contextlib
-import re
 import traceback
-from typing import List
+from typing import Dict, List, Tuple, Union
 
 import discord
+import re
 from redbot.core import Config, checks, commands, data_manager
 from redbot.core.utils.chat_formatting import box, pagify
 
@@ -136,55 +136,62 @@ class ErrorLogs(commands.Cog):
         all_dict = await self.conf.all_channels()
         if not all_dict:
             return
-        channels, all_settings = _get_channels_and_settings(ctx, all_dict)
-        if not any((channels, all_settings)):
+        channels_and_settings = self._get_channels_and_settings(ctx, all_dict)
+        if not channels_and_settings:
             return
-        error_title = "Exception in command `{}` ¯\\_(ツ)_/¯".format(
-            ctx.command.qualified_name
-        )
+
+        error_title = f"Exception in command `{ctx.command.qualified_name}` ¯\\_(ツ)_/¯"
         log = "".join(
             traceback.format_exception(type(error), error, error.__traceback__)
         )
-        channel = ctx.message.channel
+        msg_url = ctx.message.jump_url
+
         embed = discord.Embed(
             title=error_title,
             colour=discord.Colour.red(),
             timestamp=ctx.message.created_at,
+            description=f"[Jump to message]({msg_url})",
         )
-        embed.add_field(
-            name="Invoker",
-            value="{}\n({})".format(
-                ctx.message.author.mention, str(ctx.message.author)
-            ),
-        )
+        embed.add_field(name="Invoker", value=f"{ctx.author.mention}\n{ctx.author}\n")
         embed.add_field(name="Content", value=ctx.message.content)
         _channel_disp = (
-            "Private channel"
-            if isinstance(channel, discord.abc.PrivateChannel)
-            else "{}\n({})".format(channel.mention, channel.name)
+            "{}\n({})".format(ctx.channel.mention, ctx.channel.name)
+            if ctx.guild is not None
+            else str(ctx.channel)
         )
         embed.add_field(name="Channel", value=_channel_disp)
-        forbidden_msg = box(
+
+        nonembed_context = (
+            f"Invoker: {ctx.author}\n"
+            f"Content: {ctx.message.content}\n"
+            f"Channel: " + (f"#{ctx.channel}" if ctx.guild else str(ctx.channel))
+        )
+
+        if ctx.guild is not None:
+            embed.add_field(name="Server", value=ctx.guild.name)
+            nonembed_context += f"\nServer: {ctx.guild.name}"
+
+        nonembed_message = f"{error_title} {msg_url} " + box(
             "Invoker: {}\n"
             "Content: {}\n"
             "Channel: {}".format(
-                str(ctx.message.author), ctx.message.content, _channel_disp
+                str(ctx.message.author),
+                ctx.message.content,
+                f"#{ctx.channel}" if ctx.guild else str(ctx.channel),
             ),
             lang="md",
         )
-        if isinstance(channel, discord.abc.GuildChannel):
-            embed.add_field(name="Server", value=ctx.message.guild.name)
-        for channel, settings in zip(channels, all_settings):
-            disabled = not settings.get("enabled")
+
+        for channel, settings in channels_and_settings:
             diff_guild = not settings.get("global_errors") and (
                 channel.guild is None or channel.guild.id != ctx.guild.id
             )
-            if disabled or diff_guild:
+            if diff_guild:
                 continue
-            try:
+            if channel.permissions_for(ctx.me).embed_links:
                 await channel.send(embed=embed)
-            except discord.Forbidden:
-                await channel.send(forbidden_msg)
+            else:
+                await channel.send(nonembed_message)
             for page in pagify(log):
                 await channel.send(box(page, lang="py"))
 
@@ -197,12 +204,17 @@ class ErrorLogs(commands.Cog):
         with contextlib.suppress(ValueError):
             self._tasks.remove(task)
 
-
-def _get_channels_and_settings(ctx: commands.Context, all_dict: dict):
-    channels, all_settings = list(all_dict.keys()), list(all_dict.values())
-    channels = list(map(ctx.bot.get_channel, map(int, channels)))
-    all_settings = list(filter(lambda s: channels[all_settings.index(s)], all_settings))
-    channels = list(filter(None, channels))
-    if not (channels or any(s.get("enabled") for s in all_settings)):
-        return None, None
-    return channels, all_settings
+    @staticmethod
+    def _get_channels_and_settings(
+        ctx: commands.Context, all_dict: Dict[int, Dict[str, bool]]
+    ) -> List[Tuple[Union[discord.TextChannel, discord.DMChannel], Dict[str, bool]]]:
+        ret: List[Tuple[discord.TextChannel, Dict[str, bool]]] = []
+        for channel_id, channel_settings in all_dict.items():
+            channel = ctx.bot.get_channel(channel_id)
+            if channel is None or not channel_settings.get("enabled"):
+                continue
+            if not channel_settings.get("global_errors"):
+                if ctx.guild != getattr(channel, "guild", ...):
+                    continue
+            ret.append((channel, channel_settings))
+        return ret
