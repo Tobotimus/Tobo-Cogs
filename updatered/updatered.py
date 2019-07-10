@@ -61,11 +61,12 @@ class UpdateRed(getattr(commands, "Cog", object)):
     )
     if not IS_VENV:
         PIP_INSTALL_ARGS += ("--user",)
-    _REDBOT_WIN_EXECUTABLES: ClassVar[List[pathlib.Path]] = [
-        pathlib.Path("redbot.exe"),
-        pathlib.Path("redbot-launcher.exe"),
-    ]
     _BIN_PATH: ClassVar[pathlib.Path] = pathlib.Path(sys.executable).parent
+    _WINDOWS_BINARIES: ClassVar[List[pathlib.Path]] = [
+        _BIN_PATH / "redbot.exe",
+        _BIN_PATH / "redbot-launcher.exe",
+        *pathlib.Path(discord.__file__).parent.glob("bin/*.dll"),
+    ]
     _SAVED_PKG_RE: ClassVar[Pattern[str]] = re.compile(r"\s+Saved\s(?P<path>.*)$")
 
     def __init__(self, loop: asyncio.AbstractEventLoop):
@@ -88,8 +89,8 @@ class UpdateRed(getattr(commands, "Cog", object)):
 
         You may also specify any number of `extras`, which are extra
         requirements you wish to install with Red. For example, to
-        update voice and mongo requirements, run the command with
-        `[p]update <version> voice mongo`.
+        update mongo requirements with Red, run the command with
+        `[p]update <version> mongo`.
 
         Please note that when specifying any invalid arguments, the cog
         will naively try to run the update command with those arguments,
@@ -148,7 +149,7 @@ class UpdateRed(getattr(commands, "Cog", object)):
             )
 
             try:
-                response: discord.Message = await ctx.bot.wait_for(
+                response: Optional[discord.Message] = await ctx.bot.wait_for(
                     "message",
                     check=lambda m: m.author == ctx.author and m.channel == ctx.channel,
                     timeout=15.0,
@@ -204,13 +205,13 @@ class UpdateRed(getattr(commands, "Cog", object)):
 
         if sys.platform == "win32":
             # If we try to update whilst running Red, Windows will throw a permission
-            # error.
+            # error due to binaries being in use (apparently).
             self.rename_executables()
 
         log.debug("Installing Red package with command: %s", " ".join(args))
 
-        process = None
-        stdout: str = ""
+        process: Optional[asyncio.subprocess.Process] = None
+        stdout = ""
         try:
             process = await asyncio.create_subprocess_exec(
                 *args,
@@ -231,43 +232,36 @@ class UpdateRed(getattr(commands, "Cog", object)):
     @classmethod
     def rename_executables(cls) -> None:
         """This is a helper method for renaming Red's executables in Windows."""
-        # noinspection PyTypeChecker
-        for exe in map(cls._BIN_PATH.joinpath, cls._REDBOT_WIN_EXECUTABLES):
+        for exe in cls._WINDOWS_BINARIES:
             new_exe = exe.with_suffix(".old")
             if not exe.is_file():
                 continue
-            log.debug("Renaming %(exe)s to %(new_exe)s...", exe=exe, new_exe=new_exe)
+            log.debug("Renaming %s to %s...", exe, new_exe)
             try:
                 exe.rename(new_exe)
             except OSError:
-                log.error(
-                    "Failed to rename %(exe)s to $(new_exe)s!", exe=exe, new_exe=new_exe
-                )
+                log.error("Failed to rename %s to %s!", exe, new_exe)
 
     @classmethod
     def undo_rename_executables(cls) -> None:
-        # noinspection PyTypeChecker
-        for exe in map(cls._BIN_PATH.joinpath, cls._REDBOT_WIN_EXECUTABLES):
+        for exe in cls._WINDOWS_BINARIES:
             old_exe = exe.with_suffix(".old")
             if not old_exe.is_file():
                 continue
-            log.debug("Renaming %(exe)s to %(new_exe)s...", exe=old_exe, new_exe=exe)
+            log.debug("Renaming %s to %s...", old_exe, exe)
             try:
                 old_exe.rename(exe)
             except OSError:
-                log.error(
-                    "Failed to rename %(exe)s to $(new_exe)s!", exe=old_exe, new_exe=exe
-                )
+                log.error("Failed to rename %s to %s!", old_exe, exe)
 
     @classmethod
     def cleanup_old_executables(cls) -> None:
-        # noinspection PyTypeChecker
-        for exe in map(cls._BIN_PATH.joinpath, cls._REDBOT_WIN_EXECUTABLES):
+        for exe in cls._WINDOWS_BINARIES:
             old_exe = exe.with_suffix(".old")
             if not old_exe.is_file():
                 continue
-            log.debug("Deleting old file %(old_exe)s...", old_exe=old_exe)
+            log.debug("Deleting old file %s...", old_exe)
             try:
                 old_exe.unlink()
             except OSError:
-                log.debug("Failed to delete old file %(old_exe)s!", old_exe=old_exe)
+                log.debug("Failed to delete old file %s!", old_exe)
