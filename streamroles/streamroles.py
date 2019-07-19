@@ -371,7 +371,7 @@ class StreamRoles(commands.Cog):
 
         has_role = role in member.roles
         if stream and await self._is_allowed(member):
-            game = member.activity.details
+            game = getattr(activity[0], "details", "unknown")
             games = await self.conf.guild(member.guild).game_whitelist()
             if not games or game in games:
                 if not has_role:
@@ -425,7 +425,7 @@ class StreamRoles(commands.Cog):
     async def _post_alert(
         self, member: discord.Member, channel: discord.TextChannel
     ) -> discord.Message:
-        activity = member.activity
+        activity = [a for a in member.activities if a and a.type == discord.ActivityType.streaming]
         content = (
             f"{chatutils.bold(member.display_name)} is now live on Twitch, playing "
             f"{chatutils.italics(str(activity.details))}:\n\n"
