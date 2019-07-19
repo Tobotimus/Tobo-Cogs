@@ -360,7 +360,11 @@ class StreamRoles(commands.Cog):
             else await self.get_alerts_channel(member.guild)
         )
 
-        activity = [a for a in member.activities if a and a.type == discord.ActivityType.streaming]
+        activity = [
+            a
+            for a in member.activities
+            if a and a.type == discord.ActivityType.streaming
+        ]
         if activity:
             if self.DEBUG_MODE is True:
                 stream = True
@@ -425,7 +429,11 @@ class StreamRoles(commands.Cog):
     async def _post_alert(
         self, member: discord.Member, channel: discord.TextChannel
     ) -> discord.Message:
-        activity = [a for a in member.activities if a and a.type == discord.ActivityType.streaming]
+        activity = [
+            a
+            for a in member.activities
+            if a and a.type == discord.ActivityType.streaming
+        ]
         content = (
             f"{chatutils.bold(member.display_name)} is now live on Twitch, playing "
             f"{chatutils.italics(str(activity.details))}:\n\n"

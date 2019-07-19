@@ -162,15 +162,13 @@ class ErrorLogs(commands.Cog):
         embed.add_field(name="Channel", value=_channel_disp)
 
         nonembed_context = (
-            f"Invoker: {ctx.author}\n"
-            f"Content: {ctx.message.content}\n"
+            f"Invoker: {ctx.author}\n" f"Content: {ctx.message.content}\n"
         )
 
         if ctx.guild is not None:
             embed.add_field(name="Server", value=ctx.guild.name)
             nonembed_context += (
-                f"Channel: #{ctx.channel.name}\n"
-                f"Server: {ctx.guild.name}"
+                f"Channel: #{ctx.channel.name}\n" f"Server: {ctx.guild.name}"
             )
         else:
             nonembed_context += "Channel " + str(ctx.channel)
