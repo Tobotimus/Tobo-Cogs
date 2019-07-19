@@ -365,7 +365,7 @@ class StreamRoles(commands.Cog):
             if self.DEBUG_MODE is True:
                 stream = True
             else:
-                stream = activity[0].twitch_name
+                stream = getattr(activity[0], "twitch_name", True)
         else:
             stream = None
 
