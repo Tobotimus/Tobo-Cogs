@@ -360,12 +360,12 @@ class StreamRoles(commands.Cog):
             else await self.get_alerts_channel(member.guild)
         )
 
-        activity = member.activity
-        if activity is not None and isinstance(activity, discord.Streaming):
+        activity = [a for a in member.activities if a and a.type == discord.ActivityType.streaming]
+        if activity:
             if self.DEBUG_MODE is True:
                 stream = True
             else:
-                stream = activity.twitch_name
+                stream = activity[0].twitch_name
         else:
             stream = None
 
