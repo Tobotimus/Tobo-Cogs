@@ -225,34 +225,27 @@ class UpdateRed(getattr(commands, "Cog", object)):
                 stdout += "\n" + stdout_data.decode()
         finally:
             if sys.platform == "win32" and process and process.returncode:
-                self.undo_rename_executables()
+                self.rename_executables(undo=True)
 
         return process.returncode, stdout
 
     @classmethod
-    def rename_executables(cls) -> None:
+    def rename_executables(cls, *, undo: bool = False) -> None:
         """This is a helper method for renaming Red's executables in Windows."""
         for exe in cls._WINDOWS_BINARIES:
-            new_exe = exe.with_suffix(".old")
-            if not exe.is_file():
-                continue
-            log.debug("Renaming %s to %s...", exe, new_exe)
-            try:
-                exe.rename(new_exe)
-            except OSError:
-                log.error("Failed to rename %s to %s!", exe, new_exe)
+            exe_old = exe.with_suffix(".old")
+            if undo:
+                from_file, to_file = exe_old, exe
+            else:
+                from_file, to_file = exe, exe_old
 
-    @classmethod
-    def undo_rename_executables(cls) -> None:
-        for exe in cls._WINDOWS_BINARIES:
-            old_exe = exe.with_suffix(".old")
-            if not old_exe.is_file():
+            if not from_file.is_file():
                 continue
-            log.debug("Renaming %s to %s...", old_exe, exe)
+            log.debug("Renaming %s to %s...", from_file, to_file)
             try:
-                old_exe.rename(exe)
+                from_file.rename(to_file)
             except OSError:
-                log.error("Failed to rename %s to %s!", old_exe, exe)
+                log.error("Failed to rename %s to %s!", from_file, to_file)
 
     @classmethod
     def cleanup_old_executables(cls) -> None:
