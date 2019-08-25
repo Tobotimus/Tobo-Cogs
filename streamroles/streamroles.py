@@ -30,9 +30,13 @@ from redbot.core import Config, checks, commands
 from redbot.core.bot import Red
 from redbot.core.utils import chat_formatting as chatutils, menus, predicates
 
+from .types import FilterList
+
 log = logging.getLogger("red.streamroles")
 
 UNIQUE_ID = 0x923476AF
+
+_alerts_channel_sentinel = object()
 
 
 class StreamRoles(commands.Cog):
@@ -50,7 +54,7 @@ class StreamRoles(commands.Cog):
         self.conf.register_guild(
             streamer_role=None,
             game_whitelist=[],
-            mode="blacklist",
+            mode=str(FilterList.blacklist),
             alerts__enabled=False,
             alerts__channel=None,
         )
@@ -72,13 +76,9 @@ class StreamRoles(commands.Cog):
         pass
 
     @streamrole.command()
-    async def setmode(self, ctx: commands.Context, *, mode: str):
+    async def setmode(self, ctx: commands.Context, *, mode: FilterList):
         """Set the user filter mode to blacklist or whitelist."""
-        mode = mode.lower()
-        if mode not in ("blacklist", "whitelist"):
-            await ctx.send("Mode must be `blacklist` or `whitelist`.")
-            return
-        await self.conf.guild(ctx.guild).mode.set(mode)
+        await self.conf.guild(ctx.guild).mode.set(str(mode))
         await self._update_guild(ctx.guild)
         await ctx.tick()
 
@@ -95,12 +95,7 @@ class StreamRoles(commands.Cog):
         user_or_role: Union[discord.Member, discord.Role],
     ):
         """Add a member or role to the whitelist."""
-        if isinstance(user_or_role, discord.Member):
-            await self.conf.member(user_or_role).whitelisted.set(True)
-            await self._update_member(user_or_role)
-        else:
-            await self.conf.role(user_or_role).whitelisted.set(True)
-            await self._update_members_with_role(user_or_role)
+        await self._update_filter_list_entry(user_or_role, FilterList.whitelist, True)
         await ctx.tick()
 
     @whitelist.command(name="remove")
@@ -111,19 +106,14 @@ class StreamRoles(commands.Cog):
         user_or_role: Union[discord.Member, discord.Role],
     ):
         """Remove a member or role from the whitelist."""
-        if isinstance(user_or_role, discord.Member):
-            await self.conf.member(user_or_role).whitelisted.set(False)
-            await self._update_member(user_or_role)
-        else:
-            await self.conf.role(user_or_role).whitelisted.set(False)
-            await self._update_members_with_role(user_or_role)
+        await self._update_filter_list_entry(user_or_role, FilterList.whitelist, False)
         await ctx.tick()
 
     @checks.bot_has_permissions(embed_links=True)
     @whitelist.command(name="show")
     async def white_show(self, ctx: commands.Context):
         """Show the whitelisted members and roles in this server."""
-        members, roles = await self._get_filter_list(ctx.guild, "whitelist")
+        members, roles = await self._get_filter_list(ctx.guild, FilterList.whitelist)
         if not (members or roles):
             await ctx.send("The whitelist is empty.")
             return
@@ -149,12 +139,7 @@ class StreamRoles(commands.Cog):
         user_or_role: Union[discord.Member, discord.Role],
     ):
         """Add a member or role to the blacklist."""
-        if isinstance(user_or_role, discord.Member):
-            await self.conf.member(user_or_role).blacklisted.set(True)
-            await self._update_member(user_or_role)
-        else:
-            await self.conf.role(user_or_role).blacklisted.set(True)
-            await self._update_members_with_role(user_or_role)
+        await self._update_filter_list_entry(user_or_role, FilterList.blacklist, True)
         await ctx.tick()
 
     @blacklist.command(name="remove")
@@ -165,19 +150,14 @@ class StreamRoles(commands.Cog):
         user_or_role: Union[discord.Member, discord.Role],
     ):
         """Remove a member or role from the blacklist."""
-        if isinstance(user_or_role, discord.Member):
-            await self.conf.member(user_or_role).blacklisted.set(False)
-            await self._update_member(user_or_role)
-        else:
-            await self.conf.role(user_or_role).blacklisted.set(False)
-            await self._update_members_with_role(user_or_role)
+        await self._update_filter_list_entry(user_or_role, FilterList.blacklist, False)
         await ctx.tick()
 
     @checks.bot_has_permissions(embed_links=True)
     @blacklist.command(name="show")
     async def black_show(self, ctx: commands.Context):
         """Show the blacklisted members and roles in this server."""
-        members, roles = await self._get_filter_list(ctx.guild, "blacklist")
+        members, roles = await self._get_filter_list(ctx.guild, FilterList.blacklist)
         if not (members or roles):
             await ctx.send("The blacklist is empty.")
             return
@@ -279,16 +259,33 @@ class StreamRoles(commands.Cog):
         await ctx.tick()
 
     async def _get_filter_list(
-        self, guild: discord.Guild, mode: str
+        self, guild: discord.Guild, mode: FilterList
     ) -> Tuple[List[discord.Member], List[discord.Role]]:
         all_member_data = await self.conf.all_members(guild)
         all_role_data = await self.conf.all_roles()
-        mode = mode + "ed"
+        mode = mode.as_participle()
         member_ids = (u for u, d in all_member_data.items() if d.get(mode))
         role_ids = (u for u, d in all_role_data.items() if d.get(mode))
         members = list(filter(None, map(guild.get_member, member_ids)))
         roles = list(filter(None, map(guild.get_role, role_ids)))
         return members, roles
+
+    async def _update_filter_list_entry(
+        self,
+        member_or_role: Union[discord.Member, discord.Role],
+        filter_list: FilterList,
+        value: bool,
+    ) -> None:
+        if isinstance(member_or_role, discord.Member):
+            await self.conf.member(member_or_role).set_raw(
+                filter_list.as_participle(), value=value
+            )
+            await self._update_member(member_or_role)
+        else:
+            await self.conf.role(member_or_role).set_raw(
+                filter_list.as_participle(), value=value
+            )
+            await self._update_members_with_role(member_or_role)
 
     @streamrole.command()
     async def setrole(self, ctx: commands.Context, *, role: discord.Role):
@@ -348,7 +345,7 @@ class StreamRoles(commands.Cog):
         self,
         member: discord.Member,
         role: Optional[discord.Role] = None,
-        alerts_channel: Optional[discord.Role] = ...,
+        alerts_channel: Optional[discord.TextChannel] = _alerts_channel_sentinel,
     ) -> None:
         role = role or await self.get_streamer_role(member.guild)
         if role is None:
@@ -356,7 +353,7 @@ class StreamRoles(commands.Cog):
 
         channel = (
             alerts_channel
-            if alerts_channel is not ...
+            if alerts_channel is not _alerts_channel_sentinel
             else await self.get_alerts_channel(member.guild)
         )
 
@@ -394,7 +391,7 @@ class StreamRoles(commands.Cog):
 
         alerts_channel = await self.get_alerts_channel(role.guild)
 
-        if await self.conf.guild(role.guild).mode() == "blacklist":
+        if await self.conf.guild(role.guild).mode() == FilterList.blacklist:
             for member in role.members:
                 if streamer_role in member.roles:
                     log.debug(
@@ -477,7 +474,7 @@ class StreamRoles(commands.Cog):
         await self._update_member(member)
 
     async def _is_allowed(self, member: discord.Member) -> bool:
-        if await self.conf.guild(member.guild).mode() == "blacklist":
+        if await self.conf.guild(member.guild).mode() == FilterList.blacklist:
             return not await self._is_blacklisted(member)
         else:
             return await self._is_whitelisted(member)

@@ -156,9 +156,7 @@ class LogScrollingMenu:
         )
 
     async def _update_message(self, *, pin: str = "end") -> None:
-        joined_lines = "".join(
-            self._lines[self._start_pos : self._end_pos]
-        )
+        joined_lines = "".join(self._lines[self._start_pos : self._end_pos])
 
         if len(joined_lines) > MAX_CONTENT_SIZE:
             if pin == "start":
@@ -166,7 +164,7 @@ class LogScrollingMenu:
                 joined_lines = joined_lines[:cutoff]
             else:
                 cutoff = joined_lines.find("\n", -MAX_CONTENT_SIZE)
-                joined_lines = joined_lines[cutoff + 1:]
+                joined_lines = joined_lines[cutoff + 1 :]
 
         rendered_page_size = joined_lines.count("\n")
         if pin == "start":
