@@ -21,11 +21,11 @@
 # SOFTWARE.
 import asyncio
 import contextlib
+import re
 import traceback
 from typing import Dict, List, Tuple, Union
 
 import discord
-import re
 from redbot.core import Config, checks, commands, data_manager
 from redbot.core.utils.chat_formatting import box, pagify
 
@@ -161,14 +161,12 @@ class ErrorLogs(commands.Cog):
         )
         embed.add_field(name="Channel", value=_channel_disp)
 
-        nonembed_context = (
-            f"Invoker: {ctx.author}\n" f"Content: {ctx.message.content}\n"
-        )
+        nonembed_context = f"Invoker: {ctx.author}\nContent: {ctx.message.content}\n"
 
         if ctx.guild is not None:
             embed.add_field(name="Server", value=ctx.guild.name)
             nonembed_context += (
-                f"Channel: #{ctx.channel.name}\n" f"Server: {ctx.guild.name}"
+                f"Channel: #{ctx.channel.name}\nServer: {ctx.guild.name}"
             )
         else:
             nonembed_context += "Channel " + str(ctx.channel)

@@ -122,7 +122,7 @@ class ReactKarma(getattr(commands, "Cog", object)):
         if user is None:
             user = ctx.author
         karma = await self.conf.user(user).karma()
-        await ctx.send("{0} has {1} karma." "".format(user.display_name, karma))
+        await ctx.send("{0} has {1} karma.".format(user.display_name, karma))
 
     @commands.command(name="setupvote")
     @commands.guild_only()
@@ -145,9 +145,7 @@ class ReactKarma(getattr(commands, "Cog", object)):
         await self._interactive_emoji_setup(ctx, "downvote")
 
     async def _interactive_emoji_setup(self, ctx: commands.Context, type_: str):
-        msg = await ctx.send(
-            "React to my message with the new {} emoji!" "".format(type_)
-        )
+        msg = await ctx.send("React to my message with the new {} emoji!".format(type_))
         try:
             reaction, _ = await ctx.bot.wait_for(
                 "reaction_add",
@@ -171,7 +169,7 @@ class ReactKarma(getattr(commands, "Cog", object)):
         value = getattr(self.conf.guild(ctx.guild), type_)
         await value.set(save)
         await ctx.send(
-            "Done! The {} emoji in this server is now {!s}" "".format(type_, emoji)
+            "Done! The {} emoji in this server is now {!s}".format(type_, emoji)
         )
 
     @commands.command(name="resetkarma")

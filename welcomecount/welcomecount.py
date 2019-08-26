@@ -31,7 +31,7 @@ __all__ = ["UNIQUE_ID", "WelcomeCount"]
 
 UNIQUE_ID = 0x6F7951A4
 _DEFAULT_WELCOME = (
-    "Welcome, {mention}, to {server}!\n\n" "{count} user{plural} joined today!"
+    "Welcome, {mention}, to {server}!\n\n{count} user{plural} joined today!"
 )
 
 
