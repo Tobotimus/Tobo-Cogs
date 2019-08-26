@@ -57,6 +57,7 @@ class StreamRoles(commands.Cog):
             mode=str(FilterList.blacklist),
             alerts__enabled=False,
             alerts__channel=None,
+            alerts__autodelete=True,
         )
         self.conf.register_member(
             blacklisted=False, whitelisted=False, alert_messages={}
@@ -258,6 +259,19 @@ class StreamRoles(commands.Cog):
         await self.conf.guild(ctx.guild).alerts.channel.set(channel.id)
         await ctx.tick()
 
+    @alerts.command(name="autodelete")
+    async def alerts_autodelete(self,
+                                ctx: commands.Context,
+                                true_or_false: bool
+    ):
+        """Enable or disable alert autodeletion.
+
+        This is enabled by default. When enabled, alerts will be deleted
+        once the streamer's role is removed.
+        """
+        await self.conf.guild(ctx.guild).alerts.autodelete.set(true_or_false)
+        await ctx.tick()
+
     async def _get_filter_list(
         self, guild: discord.Guild, mode: FilterList
     ) -> Tuple[List[discord.Member], List[discord.Role]]:
@@ -383,7 +397,7 @@ class StreamRoles(commands.Cog):
         if has_role:
             log.debug("Removing streamrole %s from member %s", role.id, member.id)
             await member.remove_roles(role)
-            if channel:
+            if channel and await self.conf.guild(member.guild).alerts.autodelete():
                 await self._remove_alert(member, channel)
 
     async def _update_members_with_role(self, role: discord.Role) -> None:
