@@ -357,25 +357,27 @@ class StreamRoles(commands.Cog):
             else await self.get_alerts_channel(member.guild)
         )
 
-        activity = member.activity
-        if activity is not None and isinstance(activity, discord.Streaming):
-            if self.DEBUG_MODE is True:
-                stream = True
-            else:
-                stream = activity.twitch_name
-        else:
-            stream = None
+        activity = next(
+            (
+                a
+                for a in member.activities
+                if a and a.type == discord.ActivityType.streaming
+            ),
+            None,
+        )
+        if not (self.DEBUG_MODE or getattr(activity, "twitch_name", None)):
+            activity = None
 
         has_role = role in member.roles
-        if stream and await self._is_allowed(member):
-            game = member.activity.details
+        if activity and await self._is_allowed(member):
+            game = getattr(activity, "details", None)
             games = await self.conf.guild(member.guild).game_whitelist()
             if not games or game in games:
                 if not has_role:
                     log.debug("Adding streamrole %s to member %s", role.id, member.id)
                     await member.add_roles(role)
                     if channel:
-                        await self._post_alert(member, channel)
+                        await self._post_alert(member, activity, game, channel)
                 return
 
         if has_role:
@@ -420,14 +422,17 @@ class StreamRoles(commands.Cog):
             await self._update_member(member, streamer_role, alerts_channel)
 
     async def _post_alert(
-        self, member: discord.Member, channel: discord.TextChannel
+        self,
+        member: discord.Member,
+        activity: discord.Activity,
+        game: Optional[str],
+        channel: discord.TextChannel,
     ) -> discord.Message:
-        activity = member.activity
-        content = (
-            f"{chatutils.bold(member.display_name)} is now live on Twitch, playing "
-            f"{chatutils.italics(str(activity.details))}:\n\n"
-            f"{chatutils.italics(activity.name)}\n\n{activity.url}"
-        )
+        content = f"{chatutils.bold(member.display_name)} is now live on Twitch"
+        if game is not None:
+            content += f", playing {chatutils.italics(str(game))}"
+        content += f":\n\n{chatutils.italics(activity.name)}\n\n{activity.url}"
+
         msg = await channel.send(content)
         await self.conf.member(member).alert_messages.set_raw(
             str(channel.id), value=msg.id
