@@ -260,10 +260,7 @@ class StreamRoles(commands.Cog):
         await ctx.tick()
 
     @alerts.command(name="autodelete")
-    async def alerts_autodelete(self,
-                                ctx: commands.Context,
-                                true_or_false: bool
-    ):
+    async def alerts_autodelete(self, ctx: commands.Context, true_or_false: bool):
         """Enable or disable alert autodeletion.
 
         This is enabled by default. When enabled, alerts will be deleted
