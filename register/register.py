@@ -63,6 +63,6 @@ class Register(getattr(commands, "Cog", object)):
         if role in ctx.author.roles:
             cmd = admin_cog.selfrole_remove
         else:
-            cmd = admin_cog.selfrole
+            cmd = admin_cog.selfrole_add
 
         await ctx.invoke(cmd, selfrole=role)
