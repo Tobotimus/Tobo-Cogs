@@ -5,7 +5,7 @@
   "short": "Strike misbehaving users.",
   "hidden": false,
   "disabled": false,
-  "required_cogs": [],
+  "required_cogs": {},
   "requirements": ["tabulate[widechars]"],
   "tags": ["warnings", "strikes", "reports", "mod"],
   "type": "COG"
