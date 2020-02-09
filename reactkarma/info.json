@@ -5,7 +5,7 @@
   "short": "Like Reddit Karma, but with discord reactions!",
   "hidden": false,
   "disabled": false,
-  "required_cogs": [],
+  "required_cogs": {},
   "requirements": [],
   "tags": ["karma", "upvote", "downvote"],
   "type": "COG"
