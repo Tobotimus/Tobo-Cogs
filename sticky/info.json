@@ -5,7 +5,7 @@
   "short": "Sticky messages for your channels!",
   "hidden": false,
   "disabled": false,
-  "required_cogs": [],
+  "required_cogs": {},
   "requirements": [],
   "tags": ["moderation", "channeltools"],
   "type": "COG"
