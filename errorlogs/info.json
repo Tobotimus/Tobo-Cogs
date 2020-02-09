@@ -5,7 +5,7 @@
   "short": "Log error tracebacks in text channels.",
   "hidden": false,
   "disabled": false,
-  "required_cogs": [],
+  "required_cogs": {},
   "requirements": [],
   "tags": ["error", "debug", "log"],
   "type": "COG"
