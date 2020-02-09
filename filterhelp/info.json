@@ -5,7 +5,7 @@
   "short": "Control what commands are shown on the help menu.",
   "hidden": false,
   "disabled": true,
-  "required_cogs": [],
+  "required_cogs": {},
   "requirements": [],
   "tags": ["help", "hidehelp"],
   "type": "COG"
