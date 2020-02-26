@@ -33,6 +33,7 @@ log = logging.getLogger("red.reactkarma")
 __all__ = ["UNIQUE_ID", "ReactKarma"]
 
 UNIQUE_ID = 0x9C02DCC7
+MemberInfo = namedtuple("MemberInfo", "id name karma")
 
 
 class ReactKarma(getattr(commands, "Cog", object)):
@@ -244,13 +245,13 @@ class ReactKarma(getattr(commands, "Cog", object)):
 
         Returns a list of named tuples with values for `name`, `id`, `karma`.
         """
-        member_info = namedtuple("Member", "id name karma")
         ret = []
-        for member in bot.get_all_members():
-            if any(member.id == m.id for m in ret):
+        for user_id, conf in (await self.conf.all_users()).items():
+            karma = conf.get("karma")
+            if not karma:
                 continue
-            karma = await self.conf.user(member).karma()
-            if karma == 0:
+            user = bot.get_user(user_id)
+            if user is None:
                 continue
-            ret.append(member_info(id=member.id, name=str(member), karma=karma))
+            ret.append(MemberInfo(id=user_id, name=str(user), karma=karma))
         return ret
