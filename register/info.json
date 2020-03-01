@@ -6,7 +6,7 @@
   "hidden": false,
   "disabled": false,
   "required_cogs": ["admin"],
-  "requirements": [],
+  "requirements": {},
   "tags": ["selfrole", "roles"],
   "type": "COG"
 }

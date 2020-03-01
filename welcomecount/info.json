@@ -5,7 +5,7 @@
   "short": "Customisable welcome messages.",
   "hidden": false,
   "disabled": false,
-  "required_cogs": [],
+  "required_cogs": {},
   "requirements": [],
   "tags": ["welcome", "joinmessage"],
   "type": "COG"
