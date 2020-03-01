@@ -5,8 +5,10 @@
   "short": "Simplifies two SelfRole commands into one.",
   "hidden": false,
   "disabled": false,
-  "required_cogs": ["admin"],
-  "requirements": {},
+  "required_cogs": {
+    "admin": "https://github.com/Cog-Creators/Red-DiscordBot"
+  },
+  "requirements": [],
   "tags": ["selfrole", "roles"],
   "type": "COG"
 }
