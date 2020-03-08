@@ -217,7 +217,6 @@ class UpdateRed(getattr(commands, "Cog", object)):
                 *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                loop=self._loop,
             )
 
             stdout_data = (await process.communicate())[0]
