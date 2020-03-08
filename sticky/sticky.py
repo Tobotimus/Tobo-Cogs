@@ -142,9 +142,7 @@ class Sticky(commands.Cog):
                     "This will unsticky the current sticky message from "
                     "this channel. Are you sure you want to do this?"
                 )
-                start_adding_reactions(
-                    msg, emojis=ReactionPredicate.YES_OR_NO_EMOJIS, loop=ctx.bot.loop
-                )
+                start_adding_reactions(msg, emojis=ReactionPredicate.YES_OR_NO_EMOJIS)
 
                 pred = ReactionPredicate.yes_or_no(msg)
                 try:
