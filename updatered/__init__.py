@@ -29,4 +29,4 @@ def setup(bot):
         # Executables previously renamed ".old" should be cleaned up
         UpdateRed.cleanup_old_executables()
 
-    bot.add_cog(UpdateRed(bot.loop))
+    bot.add_cog(UpdateRed())

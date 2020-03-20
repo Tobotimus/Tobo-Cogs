@@ -69,9 +69,6 @@ class UpdateRed(getattr(commands, "Cog", object)):
     ]
     _SAVED_PKG_RE: ClassVar[Pattern[str]] = re.compile(r"\s+Saved\s(?P<path>.*)$")
 
-    def __init__(self, loop: asyncio.AbstractEventLoop):
-        self._loop = loop
-
     @checks.is_owner()
     @commands.command(aliases=["updatered"])
     async def update(
@@ -217,7 +214,6 @@ class UpdateRed(getattr(commands, "Cog", object)):
                 *args,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
-                loop=self._loop,
             )
 
             stdout_data = (await process.communicate())[0]

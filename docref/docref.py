@@ -63,7 +63,7 @@ class DocRef(commands.Cog):
     I need to be able to embed links for this cog to be useful!
     """
 
-    def __init__(self, loop: asyncio.AbstractEventLoop):
+    def __init__(self):
         super().__init__()
         self.conf: Config = Config.get_conf(
             self, identifier=UNIQUE_ID, force_registration=True
@@ -73,7 +73,7 @@ class DocRef(commands.Cog):
         self.invs_data: Dict[str, InvData] = {}
         self.invs_dir: pathlib.Path = data_manager.cog_data_path(self) / "invs"
         self.invs_dir.mkdir(parents=True, exist_ok=True)
-        self.session: aiohttp.ClientSession = aiohttp.ClientSession(loop=loop)
+        self.session: aiohttp.ClientSession = aiohttp.ClientSession()
 
     @commands.command(aliases=["ref", "rtd", "rtfm"])
     async def docref(self, ctx: commands.Context, sitename: str, *, node_ref: NodeRef):
