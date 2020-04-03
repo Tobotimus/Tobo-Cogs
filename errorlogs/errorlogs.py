@@ -181,7 +181,7 @@ class ErrorLogs(commands.Cog):
             )
             if diff_guild:
                 continue
-            if channel.permissions_for(ctx.me).embed_links:
+            if channel.permissions_for(getattr(channel, "guild", channel).me).embed_links:
                 await channel.send(embed=embed)
             else:
                 await channel.send(nonembed_message)
