@@ -33,8 +33,8 @@ class SelfRole(commands.Converter):
         if admin is None:
             raise commands.BadArgument("Admin is not loaded.")
 
-        conf = admin.conf
-        selfroles = await conf.guild(ctx.guild).selfroles()
+        config = admin.config
+        selfroles = await config.guild(ctx.guild).selfroles()
 
         role_converter = commands.RoleConverter()
         role = await role_converter.convert(ctx, arg)
