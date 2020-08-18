@@ -54,6 +54,9 @@ class ErrorLogs(commands.Cog):
 
         self._tasks: List[asyncio.Task] = []
         super().__init__()
+        
+    async def red_delete_data_for_user(self,**kwargs):
+        pass # Nothing needs to be done as no end user data is stored, but this function needs to exist so the data API knows that a possible deletion would have been handled.
 
     @checks.is_owner()
     @commands.group(autohelp=False)
