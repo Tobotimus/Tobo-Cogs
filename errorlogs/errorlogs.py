@@ -1,24 +1,4 @@
 """Module for the ErrorLogs cog."""
-
-# Copyright (c) 2017-2018 Tobotimus
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
 import asyncio
 import contextlib
 import re
@@ -55,9 +35,9 @@ class ErrorLogs(commands.Cog):
 
         self._tasks: List[asyncio.Task] = []
         super().__init__()
-        
-    async def red_delete_data_for_user(self,**kwargs):
-        pass # Nothing needs to be done as no end user data is stored, but this function needs to exist so the data API knows that a possible deletion would have been handled.
+
+    async def red_delete_data_for_user(self, **kwargs):
+        pass  # Nothing needs to be done as no end user data is stored, but this function needs to exist so the data API knows that a possible deletion would have been handled.
 
     @checks.is_owner()
     @commands.group(autohelp=False)
@@ -185,7 +165,9 @@ class ErrorLogs(commands.Cog):
             )
             if diff_guild:
                 continue
-            if channel.permissions_for(getattr(channel, "guild", channel).me).embed_links:
+            if channel.permissions_for(
+                getattr(channel, "guild", channel).me
+            ).embed_links:
                 await channel.send(embed=embed)
             else:
                 await channel.send(nonembed_message)
