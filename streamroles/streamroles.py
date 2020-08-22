@@ -369,19 +369,14 @@ class StreamRoles(commands.Cog):
         )
 
         activity = next(
-            (
-                a
-                for a in member.activities
-                if a and a.type == discord.ActivityType.streaming
-            ),
-            None,
+            (a for a in member.activities if isinstance(a, discord.Streaming)), None,
         )
-        if not (self.DEBUG_MODE or getattr(activity, "twitch_name", None)):
+        if activity is not None and not activity.platform:
             activity = None
 
         has_role = role in member.roles
-        if activity and await self._is_allowed(member):
-            game = getattr(activity, "details", None)
+        if activity is not None and await self._is_allowed(member):
+            game = activity.game
             games = await self.conf.guild(member.guild).game_whitelist()
             if not games or game in games:
                 if not has_role:
@@ -435,14 +430,18 @@ class StreamRoles(commands.Cog):
     async def _post_alert(
         self,
         member: discord.Member,
-        activity: discord.Activity,
+        activity: discord.Streaming,
         game: Optional[str],
         channel: discord.TextChannel,
     ) -> discord.Message:
-        content = f"{chatutils.bold(member.display_name)} is now live on Twitch"
+        content = (
+            f"{chatutils.bold(member.display_name)} is now live on {activity.platform}"
+        )
         if game is not None:
             content += f", playing {chatutils.italics(str(game))}"
-        content += f":\n\n{chatutils.italics(activity.name)}\n\n{activity.url}"
+        content += (
+            f"!\n\nTitle: {chatutils.italics(activity.name)}\nURL: {activity.url}"
+        )
 
         msg = await channel.send(content)
         await self.conf.member(member).alert_messages.set_raw(
