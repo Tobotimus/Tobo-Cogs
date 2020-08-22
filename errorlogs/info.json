@@ -8,5 +8,6 @@
   "required_cogs": {},
   "requirements": [],
   "tags": ["error", "debug", "log"],
-  "type": "COG"
+  "type": "COG",
+  "end_user_data_statement":"This cog does not store end user data."
 }
