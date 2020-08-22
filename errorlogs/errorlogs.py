@@ -41,6 +41,7 @@ IGNORED_ERRORS = (
     commands.CheckFailure,
     commands.NoPrivateMessage,
     commands.CommandOnCooldown,
+    commands.MaxConcurrencyReached,
 )
 LATEST_LOG_RE = re.compile(r"latest(?:-part(?P<part>\d+))?\.log")
 
