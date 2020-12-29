@@ -134,6 +134,13 @@ class Sticky(commands.Cog):
                     with contextlib.suppress(discord.NotFound):
                         await msg.delete()
                     return
+            else:
+                await ctx.send(
+                    f"I don't have the add_reactions permission here. "
+                    f"Use `{ctx.prefix}unsticky yes` to remove the sticky message."
+                )
+                return
+
             await settings.set(
                 # Preserve the header setting
                 {"header_enabled": await settings.header_enabled()}
@@ -143,7 +150,8 @@ class Sticky(commands.Cog):
                 await last.delete()
 
             if msg is not None:
-                await msg.delete()
+                with contextlib.suppress(discord.NotFound):
+                    await msg.delete()
             await ctx.tick()
         finally:
             self.locked_channels.remove(channel)
