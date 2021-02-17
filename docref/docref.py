@@ -248,7 +248,7 @@ class DocRef(commands.Cog):
         description = "\n".join(lines)
 
         for page in chatutils.pagify(description, page_length=2048):
-            await ctx.send(embed=discord.Embed(description=page))
+            await ctx.send(embed=discord.Embed(description=page, color=await ctx.embed_colour()))
 
     @commands.command()
     @checks.is_owner()
@@ -649,7 +649,7 @@ class DocRef(commands.Cog):
             if not page.startswith("**"):
                 page = " " * 4 + page
 
-            ret.append(discord.Embed(description=page))
+            ret.append(discord.Embed(description=page, color=await ctx.embed_colour()))
 
         ret[0].title = f"Found {count} {match_type} match{plural}."
         ret[-1].set_footer(text=f"{metadata.projname} {metadata.version}")
