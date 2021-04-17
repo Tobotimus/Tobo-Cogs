@@ -14,7 +14,6 @@ from .types import FilterList
 log = logging.getLogger("red.streamroles")
 
 UNIQUE_ID = 0x923476AF
-POLL_INTERVAL_SECONDS = 60
 
 _alerts_channel_sentinel = object()
 
@@ -31,7 +30,6 @@ class StreamRoles(commands.Cog):
         super().__init__()
         self.bot: Red = bot
         self.conf = Config.get_conf(self, force_registration=True, identifier=UNIQUE_ID)
-        self.conf.register_global(polling_enabled=False)
         self.conf.register_guild(
             streamer_role=None,
             game_whitelist=[],
@@ -44,7 +42,6 @@ class StreamRoles(commands.Cog):
             blacklisted=False, whitelisted=False, alert_messages={}
         )
         self.conf.register_role(blacklisted=False, whitelisted=False)
-        self._bg_task = self.bot.loop.create_task(self.poll_guilds())
 
     async def initialize(self) -> None:
         """Initialize the cog."""
@@ -57,27 +54,6 @@ class StreamRoles(commands.Cog):
     async def streamrole(self, ctx: commands.Context):
         """Manage settings for StreamRoles."""
         pass
-
-    @checks.is_owner()
-    @streamrole.group(autohelp=True)
-    async def polling(self, ctx: commands.Context):
-        """Manage background polling for StreamRoles.
-
-        Background polling *could* help with some reliability issues, if you're seeing
-        that the bot is not actively applying or removing the streamer role when it
-        should be.
-
-        It works by polling Discord every 60 seconds for updates to streaming presences
-        of all members in each guild where the streamer role is set.
-        """
-        pass
-
-    @checks.is_owner()
-    @polling.command(name="setenabled")
-    async def polling_setenabled(self, ctx: commands.Context, *, true_or_false: bool):
-        """Enable or disable background polling."""
-        await self.conf.polling_enabled.set(true_or_false)
-        await ctx.tick()
 
     @streamrole.command()
     async def setmode(self, ctx: commands.Context, *, mode: FilterList):
@@ -310,17 +286,13 @@ class StreamRoles(commands.Cog):
             "they go live.".format(role.name)
         )
 
-    async def get_streamer_role(
-        self, guild: discord.Guild, *, force_update: bool = False
-    ) -> Optional[discord.Role]:
+    async def get_streamer_role(self, guild: discord.Guild) -> Optional[discord.Role]:
         """Get the streamrole for this guild.
 
         Arguments
         ---------
         guild : discord.Guild
             The guild to retrieve the streamer role for.
-        force_update : bool
-            If `True`, fetch roles from the API.
 
         Returns
         -------
@@ -331,10 +303,8 @@ class StreamRoles(commands.Cog):
         role_id = await self.conf.guild(guild).streamer_role()
         if not role_id:
             return
-
-        guild_roles = await guild.fetch_roles() if force_update else guild.roles
         try:
-            role = next(r for r in guild_roles if r.id == role_id)
+            role = next(r for r in guild.roles if r.id == role_id)
         except StopIteration:
             return
         else:
@@ -378,8 +348,7 @@ class StreamRoles(commands.Cog):
         )
 
         activity = next(
-            (a for a in member.activities if isinstance(a, discord.Streaming)),
-            None,
+            (a for a in member.activities if isinstance(a, discord.Streaming)), None,
         )
         if activity is not None and not activity.platform:
             activity = None
@@ -427,21 +396,15 @@ class StreamRoles(commands.Cog):
             for member in role.members:
                 await self._update_member(member, streamer_role, alerts_channel)
 
-    async def _update_guild(
-        self, guild: discord.Guild, *, force_update: bool = False
-    ) -> None:
-        streamer_role = await self.get_streamer_role(guild, force_update=force_update)
+    async def _update_guild(self, guild: discord.Guild) -> None:
+        streamer_role = await self.get_streamer_role(guild)
         if streamer_role is None:
             return
 
         alerts_channel = await self.get_alerts_channel(guild)
 
-        if force_update:
-            async for member in guild.fetch_members(limit=None):
-                await self._update_member(member, streamer_role, alerts_channel)
-        else:
-            for member in guild.members:
-                await self._update_member(member, streamer_role, alerts_channel)
+        for member in guild.members:
+            await self._update_member(member, streamer_role, alerts_channel)
 
     async def _post_alert(
         self,
@@ -504,21 +467,6 @@ class StreamRoles(commands.Cog):
         """Update a new member who joins."""
         await self._update_member(member)
 
-    async def poll_guilds(self) -> None:
-        """Background task which forcibly updates guilds on a regular interval."""
-        while True:
-            if await self.conf.polling_enabled():
-                try:
-                    async for guild in self.bot.fetch_guilds(limit=None):
-                        await self._update_guild(guild, force_update=True)
-                except Exception as exc:
-                    if isinstance(exc, asyncio.CancelledError):
-                        # Don't complain about being cancelled
-                        break
-                    log.exception("Exception in polling task", exc_info=exc)
-
-            await asyncio.sleep(POLL_INTERVAL_SECONDS)
-
     async def _is_allowed(self, member: discord.Member) -> bool:
         if await self.conf.guild(member.guild).mode() == FilterList.blacklist:
             return not await self._is_blacklisted(member)
@@ -540,6 +488,3 @@ class StreamRoles(commands.Cog):
             if await self.conf.role(role).blacklisted():
                 return True
         return False
-
-    def cog_unload(self) -> None:
-        self._bg_task.cancel()
