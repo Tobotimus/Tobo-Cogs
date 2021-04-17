@@ -348,7 +348,8 @@ class StreamRoles(commands.Cog):
         )
 
         activity = next(
-            (a for a in member.activities if isinstance(a, discord.Streaming)), None,
+            (a for a in member.activities if isinstance(a, discord.Streaming)),
+            None,
         )
         if activity is not None and not activity.platform:
             activity = None
@@ -459,7 +460,7 @@ class StreamRoles(commands.Cog):
         self, before: discord.Member, after: discord.Member
     ) -> None:
         """Apply or remove streamrole when a user's activity changes."""
-        if before.activity != after.activity:
+        if before.activities != after.activities:
             await self._update_member(after)
 
     @commands.Cog.listener()
