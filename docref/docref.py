@@ -1,6 +1,6 @@
 """Module for the DocRef cog."""
 import asyncio
-import os
+import shutil
 import pathlib
 import re
 import tempfile
@@ -533,7 +533,7 @@ class DocRef(commands.Cog):
                 while chunk:
                     stream.write(chunk)
                     chunk = await resp.content.read(1024)
-        os.replace(filename, inv_path)
+        shutil.move(filename, inv_path)
 
         await self.set_inv_metadata(url, metadata)
 
