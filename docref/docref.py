@@ -114,7 +114,7 @@ class DocRef(commands.Cog):
             if not matches:
                 continue
 
-            if exact is True:
+            if exact:
                 assert matches  # just double check our subroutine didn't do a poopoo
                 exact_matches[reftype] = matches
             elif exact_matches:
@@ -139,7 +139,12 @@ class DocRef(commands.Cog):
             return
 
         metadata = await self.get_inv_metadata(url)
-        embed_list = self._new_match_embed(metadata, matches, bool(exact_matches))
+        embed_list = self._new_match_embed(
+            metadata,
+            matches,
+            exact=bool(exact_matches),
+            colour=await ctx.embed_colour(),
+        )
 
         for embed in embed_list:
             await ctx.send(embed=embed)
@@ -248,7 +253,9 @@ class DocRef(commands.Cog):
         description = "\n".join(lines)
 
         for page in chatutils.pagify(description, page_length=2048):
-            await ctx.send(embed=discord.Embed(description=page, color=await ctx.embed_colour()))
+            await ctx.send(
+                embed=discord.Embed(description=page, colour=await ctx.embed_colour())
+            )
 
     @commands.command()
     @checks.is_owner()
@@ -256,7 +263,7 @@ class DocRef(commands.Cog):
         """Force a documentation webpage to be updated.
 
         Updates are checked for every time you use `[p]docref`. However,
-        the inventory cache isn't actually update unless we have an old
+        the inventory cache isn't actually updated unless we have an old
         version number.
 
         This command will force the site to be updated irrespective of the
@@ -624,7 +631,11 @@ class DocRef(commands.Cog):
 
     @staticmethod
     def _new_match_embed(
-        metadata: InvMetaData, matches: MatchesDict, exact: bool
+        metadata: InvMetaData,
+        matches: MatchesDict,
+        *,
+        exact: bool,
+        colour: Optional[discord.Colour] = None,
     ) -> List[discord.Embed]:
         count = 0
         match_type = "exact" if exact else "possible"
@@ -649,7 +660,9 @@ class DocRef(commands.Cog):
             if not page.startswith("**"):
                 page = " " * 4 + page
 
-            ret.append(discord.Embed(description=page, color=await ctx.embed_colour()))
+            ret.append(
+                discord.Embed(description=page, colour=colour or discord.Embed.Empty)
+            )
 
         ret[0].title = f"Found {count} {match_type} match{plural}."
         ret[-1].set_footer(text=f"{metadata.projname} {metadata.version}")
