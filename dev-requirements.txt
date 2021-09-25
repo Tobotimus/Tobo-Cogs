@@ -1,5 +1,0 @@
-flake8
-black
-Red-DiscordBot
-tabulate[widechars]
-sphinx
