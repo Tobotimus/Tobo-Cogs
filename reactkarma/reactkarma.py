@@ -182,7 +182,11 @@ class ReactKarma(getattr(commands, "Cog", object)):
     ):
         message = reaction.message
         (author, channel, guild) = (message.author, message.channel, message.guild)
-        if author == user or isinstance(channel, discord.abc.PrivateChannel):
+        if (
+            author == user
+            or user.bot
+            or isinstance(channel, discord.abc.PrivateChannel)
+        ):
             return
         emoji = reaction.emoji
         upvote = await self._is_upvote(guild, emoji)
