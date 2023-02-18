@@ -2,7 +2,7 @@
 import asyncio
 import contextlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, cast
 
 import discord
@@ -193,7 +193,14 @@ class Sticky(commands.Cog):
             ):
                 return
 
-            time_since = datetime.utcnow() - last_message.created_at
+            # Discord.py 2.0 uses timezone-aware timestamps, so we need
+            # to do the same to compare the timestamps.
+            if last_message.created_at.tzinfo is None:
+                utcnow = datetime.utcnow()
+            else:
+                utcnow = datetime.now(timezone.utc)
+
+            time_since = utcnow - last_message.created_at
             time_to_wait = self.REPOST_COOLDOWN - time_since.total_seconds()
             if time_to_wait > 0:
                 await asyncio.sleep(time_to_wait)

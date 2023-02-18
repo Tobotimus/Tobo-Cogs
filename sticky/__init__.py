@@ -1,7 +1,14 @@
 """Sticky - Sticky messages to a channel."""
+import asyncio
+from redbot.core.bot import Red
+
 from .sticky import Sticky
 
 
-def setup(bot):
+async def setup(bot: Red):
     """Load Sticky."""
-    bot.add_cog(Sticky(bot))
+    cog = Sticky(bot)
+    if asyncio.iscoroutinefunction(bot.add_cog):
+        await bot.add_cog(cog)
+    else:
+        bot.add_cog(cog)
