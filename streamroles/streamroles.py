@@ -452,14 +452,14 @@ class StreamRoles(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild) -> None:
-        """Update any members in a new guild."""
+        """Update any members when the bot joins a new guild."""
         await self._update_guild(guild)
 
     @commands.Cog.listener()
-    async def on_member_update(
+    async def on_presence_update(
         self, before: discord.Member, after: discord.Member
     ) -> None:
-        """Apply or remove streamrole when a user's activity changes."""
+        """Apply or remove the streamrole when a user's activity changes."""
         if before.activities != after.activities:
             await self._update_member(after)
 
