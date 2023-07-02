@@ -286,6 +286,24 @@ class StreamRoles(commands.Cog):
             "they go live.".format(role.name)
         )
 
+    @streamrole.command()
+    async def forceupdate(self, ctx: commands.Context):
+        """Force the bot to reassign streamroles to members in this server.
+
+        This command forces the bot to inspect the streaming status of
+        all current members of the server, and assign (or remove) the
+        streamrole.
+        """
+        if not await self.get_streamer_role(ctx.guild):
+            await ctx.send(
+                f"The streamrole has not been set in this server. Please use "
+                f"`{ctx.clean_prefix}streamrole setrole` first."
+            )
+            return
+
+        await self._update_guild(ctx.guild)
+        await ctx.tick()
+
     async def get_streamer_role(self, guild: discord.Guild) -> Optional[discord.Role]:
         """Get the streamrole for this guild.
 
