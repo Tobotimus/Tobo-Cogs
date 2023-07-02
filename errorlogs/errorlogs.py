@@ -129,15 +129,38 @@ class ErrorLogs(commands.Cog):
             traceback.format_exception(type(error), error, error.__traceback__)
         )
         msg_url = ctx.message.jump_url
+        if ctx.interaction:
+            app_commands = await ctx.bot.list_enabled_app_commands()
+            all_commands = {com: _id for k in app_commands.values() for com, _id in k.items()}
+
+            parent = ctx.command.app_command.qualified_name
+            command_str = f"{ctx.clean_prefix}{parent}"
+            try:
+                root_parent = parent.split(" ")[0]
+            except IndexError:
+                root_parent = parent
+            if root_parent in all_commands:
+                com_id = all_commands[root_parent]
+                command_str = f"</{parent}:{com_id}>"
+
+            kwargs = " ".join(f"{k}: {v}" for k, v in ctx.kwargs.items() if v is not None)
+            args = " ".join(
+                str(v)
+                for v in ctx.args
+                if v and not isinstance(v, (commands.Cog, commands.Context))
+            )
+            com_str = f"{command_str} {args} {kwargs}"
+        else:
+            com_str = ctx.message.content
 
         embed = discord.Embed(
             title=error_title,
             colour=discord.Colour.red(),
             timestamp=ctx.message.created_at,
-            description=f"[Jump to message]({msg_url})",
+            description=f">>> {com_str}",
         )
         embed.add_field(name="Invoker", value=f"{ctx.author.mention}\n{ctx.author}\n")
-        embed.add_field(name="Content", value=ctx.message.content)
+        embed.add_field(name="Message", value=msg_url)
         _channel_disp = (
             "{}\n({})".format(ctx.channel.mention, ctx.channel.name)
             if ctx.guild is not None
