@@ -43,7 +43,7 @@ class Strikes(commands.Cog):
         super().__init__()
 
     async def initialize(self):
-        # Casetype registration
+        # Case-type registration
         with contextlib.suppress(RuntimeError):
             await modlog.register_casetype(**_CASETYPE)
 
@@ -144,7 +144,7 @@ class Strikes(commands.Cog):
         Parameters
         ----------
         member : discord.Member
-            The member who was striked.
+            The member who has received a strike.
         timestamp : datetime.datetime
             The timestamp for the strike.
         reason : str
@@ -236,6 +236,8 @@ class Strikes(commands.Cog):
                 )
             )
 
+    @checks.mod_or_permissions(kick_members=True)
+    @commands.guild_only()
     @commands.command()
     async def allstrikes(self, ctx: commands.Context, num_days: int = 30):
         """Show all recent individual strikes.
@@ -248,7 +250,7 @@ class Strikes(commands.Cog):
         if num_days < 0:
             await ctx.send(
                 _(
-                    "You must specify a number of days of at least 0 to retreive "
+                    "You must specify a number of days of at least 0 to retrieve "
                     "strikes from."
                 )
             )
@@ -273,7 +275,6 @@ class Strikes(commands.Cog):
             table = self._create_table(cursor, ctx.guild, show_id=False)
 
         if table:
-            print(len(table))
             pages = pagify(table, shorten_by=25)
             if num_days:
                 await ctx.send(
@@ -296,6 +297,8 @@ class Strikes(commands.Cog):
             else:
                 await ctx.send(_("No users in this server have ever received strikes!"))
 
+    @checks.mod_or_permissions(kick_members=True)
+    @commands.guild_only()
     @commands.command()
     async def strikecounts(
         self,
@@ -324,7 +327,7 @@ class Strikes(commands.Cog):
         if num_days < 0:
             await ctx.send(
                 _(
-                    "You must specify a number of days of at least 0 to retreive "
+                    "You must specify a number of days of at least 0 to retrieve "
                     "strikes from."
                 )
             )
@@ -332,7 +335,7 @@ class Strikes(commands.Cog):
         if limit < 1:
             await ctx.send(
                 _(
-                    "You must specify a number of members of at least 1 to retreive "
+                    "You must specify a number of members of at least 1 to retrieve "
                     "strikes for."
                 )
             )
@@ -358,7 +361,12 @@ class Strikes(commands.Cog):
         with self._db_connect() as conn:
             cursor = conn.execute(
                 f"""
-                SELECT max(id) as most_recent_id, user, count(user) as count FROM strikes
+                SELECT
+                  max(id) as most_recent_id,
+                  user,
+                  count(user) as count
+                FROM
+                  strikes
                 WHERE
                   guild = ?
                   AND id > ?
