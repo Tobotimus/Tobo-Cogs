@@ -129,15 +129,47 @@ class ErrorLogs(commands.Cog):
             traceback.format_exception(type(error), error, error.__traceback__)
         )
         msg_url = ctx.message.jump_url
+        if ctx.interaction:
+            data = ctx.interaction.data
+            com_id = data.get("id")
+            root_command = data.get("name")
+            sub_commands = ""
+            arguments = ""
+            for option in data.get("options", []):
+                # Option Type 1 and 2 refer to commands and groups respectively
+                # anything not in those two is part of the arguments
+                if option["type"] in (1, 2):
+                    sub_commands += " " + option["name"]
+                else:
+                    option_name = option["name"]
+                    option_value = option.get("value")
+                    arguments += f"{option_name}: {option_value}"
+                for sub_option in option.get("options", []):
+                    if sub_option["type"] in (1, 2):
+                        sub_commands += " " + sub_option["name"]
+                    else:
+                        sub_option_name = sub_option.get("name")
+                        sub_option_value = sub_option.get("value")
+                        arguments += f"{sub_option_name}: {sub_option_value}"
+                    for arg in sub_option.get("options", []):
+                        arg_option_name = arg.get("name")
+                        arg_option_value = arg.get("value")
+                        arguments += f"{arg_option_name}: {arg_option_value} "
+            command_name = f"{root_command}{sub_commands}"
+            command_str = f"</{command_name}:{com_id}>"
+
+            com_str = f"{command_str} {arguments}"
+        else:
+            com_str = ctx.message.content
 
         embed = discord.Embed(
             title=error_title,
             colour=discord.Colour.red(),
             timestamp=ctx.message.created_at,
-            description=f"[Jump to message]({msg_url})",
+            description=f">>> {com_str}",
         )
         embed.add_field(name="Invoker", value=f"{ctx.author.mention}\n{ctx.author}\n")
-        embed.add_field(name="Content", value=ctx.message.content)
+        embed.add_field(name="Message", value=msg_url)
         _channel_disp = (
             "{}\n({})".format(ctx.channel.mention, ctx.channel.name)
             if ctx.guild is not None
