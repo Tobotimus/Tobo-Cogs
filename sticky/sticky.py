@@ -9,6 +9,7 @@ import discord
 from redbot.core import Config, checks, commands
 from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import MessagePredicate, ReactionPredicate
+from redbot.core.commands import TimedeltaConverter
 
 UNIQUE_ID = 0x6AFE8000
 
@@ -17,8 +18,6 @@ log = logging.getLogger("red.sticky")
 
 class Sticky(commands.Cog):
     """Sticky messages to your channels."""
-
-    REPOST_COOLDOWN = 3
 
     def __init__(self, bot):
         super().__init__()
@@ -30,6 +29,7 @@ class Sticky(commands.Cog):
             header_enabled=True,
             advstickied={"content": None, "embed": {}},  # This is for [p]stickyexisting
             last=None,
+            cooldown=3
         )
         self.locked_channels = set()
         self._channel_cvs: Dict[discord.TextChannel, asyncio.Condition] = {}
@@ -108,6 +108,17 @@ class Sticky(commands.Cog):
         """
         await self.conf.channel(ctx.channel).header_enabled.set(true_or_false)
         await ctx.tick()
+
+    @checks.mod_or_permissions(manage_messages=True)
+    @commands.guild_only()
+    @sticky.command(name="setcooldown")
+    async def sticky_setcooldown(self, ctx: commands.Context, cooldown: TimedeltaConverter):
+        """Set the cooldown for bumping stickied messages in this channel.
+        e.g. 10 seconds, 1 minute, 5 minutes
+
+        Default = 3 seconds
+        """
+        await self.conf.channel(ctx.channel).cooldown.set(cooldown.total_seconds())
 
     @checks.mod_or_permissions(manage_messages=True)
     @commands.guild_only()
@@ -201,7 +212,7 @@ class Sticky(commands.Cog):
                 utcnow = datetime.now(timezone.utc)
 
             time_since = utcnow - last_message.created_at
-            time_to_wait = self.REPOST_COOLDOWN - time_since.total_seconds()
+            time_to_wait = settings_dict["cooldown"] - time_since.total_seconds()
             if time_to_wait > 0:
                 await asyncio.sleep(time_to_wait)
 
