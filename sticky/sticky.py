@@ -37,9 +37,16 @@ class Sticky(commands.Cog):
     @checks.mod_or_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.group(invoke_without_command=True)
-    async def sticky(self, ctx: commands.Context, *, content: str):
-        """Sticky a message to this channel."""
-        channel = ctx.channel
+    async def sticky(
+            self,
+            ctx: commands.Context,
+            channel: Optional[discord.TextChannel] = None,
+            *,
+            content: str
+    ):
+        """Sticky a message to the specified channel or this channel if none given."""
+        if channel is None:
+            channel = ctx.channel
         settings = self.conf.channel(channel)
 
         async with settings.all() as settings_dict:
@@ -61,9 +68,13 @@ class Sticky(commands.Cog):
     @commands.guild_only()
     @sticky.command(name="existing")
     async def sticky_existing(
-        self, ctx: commands.Context, *, message_id_or_url: discord.Message
+            self,
+            ctx: commands.Context,
+            channel: Optional[discord.TextChannel] = None,
+            *,
+            message_id_or_url: discord.Message
     ):
-        """Sticky an existing message to this channel.
+        """Sticky an existing message to the specified channel or this channel if none given.
 
         This will try to sticky the content and embed of the message.
         Attachments will not be added to the stickied message.
@@ -74,7 +85,8 @@ class Sticky(commands.Cog):
         """
         message = message_id_or_url
         del message_id_or_url
-        channel = ctx.channel
+        if channel is None:
+            channel = ctx.channel
         settings = self.conf.channel(channel)
         if not (message.content or message.embeds):
             await ctx.send("That message doesn't have any content or embed!")
