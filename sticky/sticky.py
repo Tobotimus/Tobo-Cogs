@@ -28,7 +28,7 @@ class Sticky(commands.Cog):
             header_enabled=True,
             advstickied={"content": None, "embed": {}},  # This is for [p]stickyexisting
             last=None,
-            cooldown=5,
+            cooldown=3,
         )
         self.locked_channels = set()
         self._channel_cvs: Dict[discord.TextChannel, asyncio.Condition] = {}
@@ -114,9 +114,9 @@ class Sticky(commands.Cog):
     async def sticky_cooldown(self, ctx: commands.Context, seconds: int):
         """Set the cooldown time for reposting sticky messages in this channel.
         
-        The cooldown must be at least 5 seconds."""
-        if seconds < 5:
-            await ctx.send("The cooldown cannot be set lower than 5 seconds.")
+        The cooldown must be at least 3 seconds."""
+        if seconds < 3:
+            await ctx.send("The cooldown cannot be set lower than 3 seconds.")
             return
         await self.conf.channel(ctx.channel).cooldown.set(seconds)
         await ctx.tick()
