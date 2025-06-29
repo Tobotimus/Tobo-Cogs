@@ -1,4 +1,5 @@
 """Sticky - Sticky messages to a channel."""
+
 import asyncio
 from redbot.core.bot import Red
 
