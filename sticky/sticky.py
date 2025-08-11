@@ -18,8 +18,8 @@ log = logging.getLogger("red.sticky")
 class Sticky(commands.Cog):
     """Sticky messages to your channels."""
 
-    REPOST_COOLDOWN = 3
-
+    DEFAULT_COOLDOWN = 3
+    
     def __init__(self, bot):
         super().__init__()
 
@@ -28,8 +28,9 @@ class Sticky(commands.Cog):
         self.conf.register_channel(
             stickied=None,  # This is for [p]sticky
             header_enabled=True,
-            advstickied={"content": None, "embed": {}},  # This is for [p]stickyexisting
+            advstickied={"content": None, "embed": {}},  # This is for [p]sticky existing
             last=None,
+            cooldown=self.DEFAULT_COOLDOWN,  # Use the class constant here
         )
         self.locked_channels = set()
         self._channel_cvs: Dict[discord.TextChannel, asyncio.Condition] = {}
@@ -107,6 +108,28 @@ class Sticky(commands.Cog):
         The header is enabled by default.
         """
         await self.conf.channel(ctx.channel).header_enabled.set(true_or_false)
+        await ctx.tick()
+
+    @checks.mod_or_permissions(manage_messages=True)
+    @commands.guild_only()
+    @sticky.command(name="cooldown", aliases=["setcooldown"])
+    async def sticky_cooldown(self, ctx: commands.Context, seconds: Optional[int] = None):
+        """Set the cooldown time for reposting sticky messages in this channel.
+        
+        If no value is provided, resets to the default cooldown.
+        The cooldown must be at least 3 seconds."""
+        default_cooldown = self.DEFAULT_COOLDOWN
+        
+        if seconds is None:
+            await self.conf.channel(ctx.channel).cooldown.set(default_cooldown)
+            await ctx.send(f"Cooldown has been reset to the default (**{default_cooldown} seconds**).")
+            return
+            
+        if seconds < default_cooldown:
+            await ctx.send(f"The cooldown cannot be set lower than **{default_cooldown} seconds**.")
+            return
+            
+        await self.conf.channel(ctx.channel).cooldown.set(seconds)
         await ctx.tick()
 
     @checks.mod_or_permissions(manage_messages=True)
@@ -201,9 +224,19 @@ class Sticky(commands.Cog):
                 utcnow = datetime.now(timezone.utc)
 
             time_since = utcnow - last_message.created_at
-            time_to_wait = self.REPOST_COOLDOWN - time_since.total_seconds()
-            if time_to_wait > 0:
-                await asyncio.sleep(time_to_wait)
+            current_cooldown = settings_dict["cooldown"]
+            time_to_wait = current_cooldown - time_since.total_seconds()
+
+        # Release lock before sleeping to allow unsticky commands
+        if time_to_wait > 0:
+            await asyncio.sleep(time_to_wait)
+
+        async with cv:
+            await cv.wait_for(lambda: channel not in self.locked_channels)
+            # Re-check conditions after sleep
+            settings_dict = await settings.all()
+            if settings_dict["last"] != last_message_id:
+                return  # Message changed during sleep
 
             if not (
                 settings_dict["stickied"] or any(settings_dict["advstickied"].values())
