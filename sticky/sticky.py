@@ -1,9 +1,10 @@
 """Module for the Sticky cog."""
+
 import asyncio
 import contextlib
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional, cast, AsyncGenerator
 
 import discord
 from redbot.core import Config, checks, commands
@@ -61,9 +62,7 @@ class Sticky(commands.Cog):
     @checks.mod_or_permissions(manage_messages=True)
     @commands.guild_only()
     @sticky.command(name="existing")
-    async def sticky_existing(
-        self, ctx: commands.Context, *, message_id_or_url: discord.Message
-    ):
+    async def sticky_existing(self, ctx: commands.Context, *, message_id_or_url: discord.Message):
         """Sticky an existing message to this channel.
 
         This will try to sticky the content and embed of the message.
@@ -177,9 +176,7 @@ class Sticky(commands.Cog):
         )
 
     @commands.Cog.listener()
-    async def on_raw_message_delete(
-        self, payload: discord.raw_models.RawMessageDeleteEvent
-    ):
+    async def on_raw_message_delete(self, payload: discord.raw_models.RawMessageDeleteEvent):
         """If the stickied message was deleted, re-post it."""
         channel = self.bot.get_channel(payload.channel_id)
         settings = self.conf.channel(channel)
@@ -238,9 +235,7 @@ class Sticky(commands.Cog):
             if settings_dict["last"] != last_message_id:
                 return  # Message changed during sleep
 
-            if not (
-                settings_dict["stickied"] or any(settings_dict["advstickied"].values())
-            ):
+            if not (settings_dict["stickied"] or any(settings_dict["advstickied"].values())):
                 # There's nothing to send
                 await settings.last.clear()
                 return
@@ -254,9 +249,7 @@ class Sticky(commands.Cog):
                     await last_message.delete()
 
     @staticmethod
-    async def _send_stickied_message(
-        channel: discord.TextChannel, settings_dict: Dict[str, Any]
-    ):
+    async def _send_stickied_message(channel: discord.TextChannel, settings_dict: Dict[str, Any]):
         """Send the content and/or embed as a stickied message."""
         embed = None
         header_enabled = settings_dict["header_enabled"]
@@ -273,10 +266,12 @@ class Sticky(commands.Cog):
             if header_enabled:
                 content = f"{header_text}\n\n{content}" if content else header_text
 
-        return await channel.send(content, embed=embed)
+        return await channel.send(
+            content, embed=embed, allowed_mentions=discord.AllowedMentions.none()
+        )
 
     @contextlib.asynccontextmanager
-    async def _lock_channel(self, channel: discord.TextChannel) -> None:
+    async def _lock_channel(self, channel: discord.TextChannel) -> AsyncGenerator[None, None]:
         cv = self._channel_cvs.setdefault(channel, asyncio.Condition())
         async with cv:
             self.locked_channels.add(channel)
